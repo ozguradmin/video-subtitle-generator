@@ -215,7 +215,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             fs.writeFileSync(assPath, assContent);
             logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
-            // FFmpeg komutunu oluştur - drawtext kullan (daha güvenilir)
+            // FFmpeg komutunu oluştur - drawtext kullan (fontfile olmadan)
             let drawtextFilters = [];
             
             subtitlesData.subtitles.forEach((sub, index) => {
@@ -224,7 +224,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 const text = sub.line.replace(/'/g, "\\'").replace(/:/g, "\\:");
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${startTime},${endTime})'`
+                    `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${startTime},${endTime})'`
                 );
             });
             
