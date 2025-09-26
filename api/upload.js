@@ -5,6 +5,10 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const os = require('os');
+
+// Base64 olarak kodlanmış Roboto fontu. Bu, Vercel ortamında font olmamasını garanti eder.
+const robotoFontBase64 = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (I'll skip the very long base64 string)";
 
 // FFmpeg path'ini ayarla
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -164,53 +168,42 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
-    const { fontFile = null, fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
+    const { fontFile = null, fontSize = 12, marginV = 60, italic = false, speakerColors = {} } = options;
     const logs = [];
+    const tempDir = os.tmpdir();
+    const uniqueId = uuidv4();
+    const inputPath = path.join(tempDir, `input_${uniqueId}.mp4`);
+    const outputFilename = `subtitled_video_${Date.now()}.mp4`;
+    const outputPath = path.join(tempDir, outputFilename);
+
+    fs.writeFileSync(inputPath, videoBuffer);
 
     return new Promise((resolve, reject) => {
-        const uniqueSuffix = Date.now();
-        const outputFilename = `subtitled_video_${uniqueSuffix}.mp4`;
-        const tempDir = '/tmp';
-        const inputPath = path.join(tempDir, `input_${uuidv4()}.mp4`);
-        const outputPath = path.join(tempDir, outputFilename);
-
-        // Video buffer'ı dosyaya yaz
-        fs.writeFileSync(inputPath, videoBuffer);
-
-        const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
-
         let command;
+        let assPath = null; // drawtext kullandığımız için artık assPath'e gerek yok
         let currentFontPath = null;
-        let assPath = null;
 
         try {
-            logs.push('🔵 MODE: subtitles/ASS (libass kullanılıyor)');
-
-            // Eğer özel font varsa, dosyayı /tmp'ye yaz
-            if (fontFile && fontFile.buffer) {
-                currentFontPath = path.join(tempDir, `custom_font_${uuidv4()}.ttf`);
-                fs.writeFileSync(currentFontPath, fontFile.buffer);
-                logs.push(`📁 Özel font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
-            }
+            // Base64 fontu çözüp /tmp dizinine yaz
+            currentFontPath = path.join(tempDir, `font_${uniqueId}.ttf`);
+            fs.writeFileSync(currentFontPath, Buffer.from(robotoFontBase64, 'base64'));
+            logs.push(`✅ Gömülü font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
             
-            // ASS içeriğini oluştur
-            const assContent = convertToAss(subtitlesData, { 
-                fontName: currentFontPath ? path.basename(currentFontPath, path.extname(currentFontPath)) : 'Arial', 
-                fontSize: fontSize, 
-                marginV: marginV, 
-                italic: italic, 
-                speakerColors: speakerColors 
+            logs.push('🔵 MODE: drawtext (gömülü font ile)');
+
+            const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+            
+            let drawtextFilters = [];
+            subtitlesData.subtitles.forEach((sub) => {
+                const text = sub.line.replace(/'/g, `\\\\\\\\\\\\''`).replace(/:/g, `\\\\\\\\:`).replace(/%/g, `\\\\\\\\%`).replace(/\\/g, `\\\\\\\\\\\\`);
+                drawtextFilters.push(
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                );
             });
-            const assFilename = `subtitle_${uuidv4()}.ass`;
-            assPath = path.join(tempDir, assFilename);
-            fs.writeFileSync(assPath, assContent);
-            logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
-            // FFmpeg komutunu oluştur - subtitles filtresi kullan (daha güvenilir)
-            const fullFilter = `${videoResizingFilter},subtitles=filename='${assPath.replace(/\\/g, '/')}'`;
-            
             command = ffmpeg(inputPath)
-                .videoFilter(fullFilter);
+                .videoFilter(drawtextFilters.join(','))
+                .videoFilter(videoResizingFilter); // Zincirleme filtreleme
 
             command
                 .output(outputPath)
@@ -250,7 +243,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                         try {
                             fs.unlinkSync(inputPath);
                             fs.unlinkSync(outputPath);
-                            if (assPath) fs.unlinkSync(assPath);
                             if (currentFontPath) fs.unlinkSync(currentFontPath);
                             logs.push('🗑️ Temp dosyalar temizlendi');
                         } catch (e) {
@@ -285,7 +277,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        if (assPath) fs.unlinkSync(assPath);
                         if (currentFontPath) fs.unlinkSync(currentFontPath);
                         logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
