@@ -26,12 +26,12 @@ class GeminiHelper {
 
         try {
             logs.push(`🤖 AI'a video analizi için istek gönderiliyor...`);
-            const prompt = `Bu video dosyasından altyazı oluştur. Video içeriğini analiz et ve konuşmacıları ayırt ederek altyazılar oluştur. Sadece JSON formatında döndür, başka hiçbir açıklama veya ön metin ekleme:
+            const prompt = `Bu video dosyasından altyazı oluştur. Video içeriğini analiz et ve konuşmacıları ayırt ederek altyazılar oluştur. ÖNEMLİ: Tüm altyazıları Türkçe olarak oluştur. Eğer video İngilizce ise, altyazıları Türkçe'ye çevir. Sadece JSON formatında döndür, başka hiçbir açıklama veya ön metin ekleme:
 
 {
     "subtitles": [
-        {"speaker": "Speaker 1", "startTime": 0.0, "endTime": 3.0, "line": "Altyazı metni"},
-        {"speaker": "Speaker 2", "startTime": 3.0, "endTime": 6.0, "line": "Başka altyazı metni"}
+        {"speaker": "Speaker 1", "startTime": 0.0, "endTime": 3.0, "line": "Türkçe altyazı metni"},
+        {"speaker": "Speaker 2", "startTime": 3.0, "endTime": 6.0, "line": "Başka Türkçe altyazı metni"}
     ]
 }`;
 
@@ -143,6 +143,9 @@ function convertToAss(subtitlesData, options = {}) {
     const defaultColors = ['&H0000FFFF&', '&H00FFFFFF&', '&H00FFFF00&', '&H00FF00FF&', '&H0000FF00&']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
     const usedStyles = new Set();
     const italicValue = italic ? '1' : '0'; // Italic değeri sabit tutulacak
+    
+    // Vercel'de mevcut olan fontları kullan
+    const safeFontName = 'Arial'; // Vercel'de garantili olan font
 
     subtitlesData.subtitles.forEach((sub, index) => {
         let styleName = 'Default';
@@ -164,7 +167,7 @@ function convertToAss(subtitlesData, options = {}) {
                 color = defaultColors[speakerIndex % defaultColors.length];
             }
             
-            stylesSection += `Style: ${styleName},${fontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
+            stylesSection += `Style: ${styleName},${safeFontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
         }
 
         const startTime = formatTime(sub.startTime);
@@ -222,24 +225,12 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             fs.writeFileSync(assPath, assContent);
             logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
-            // FFmpeg komutunu oluştur
-            let subtitlesFilterString = `subtitles=filename='${assPath.replace(/\\/g, '/')}'`;
+            // FFmpeg komutunu oluştur - complexFilter kullan
+            const complexFilter = `[0:v]${videoResizingFilter}[resized];[resized]subtitles=filename='${assPath.replace(/\\/g, '/')}'[out]`;
             
-            // Eğer özel font varsa, ffmpeg'e font dosyasının yolunu ver
-            // Libass fontconfig'i kullanabilir veya direkt fontfile path'i alabilir.
-            // Burada .ass dosyasının içindeki fontname kullanıldığı için, direkt fontfile parametresi yerine
-            // ass dosyasında belirtilen fontu libass bulmaya çalışır.
-            // Vercel'de fontlar /usr/share/fonts içinde olabilir.
-            // En sağlam yol, eğer özel font varsa, libass'ın o fontu kullanmasını sağlamak için
-            // ass dosyasında fontfamily olarak belirtmek ve fontu da tmp'ye yazıp erişilebilir kılmak.
-            // convertToAss zaten fontName'i ass içine yazıyor.
-
-            command = ffmpeg(inputPath).videoFilter(`${videoResizingFilter},${subtitlesFilterString}`);
-            
-            // FFmpeg global ayarları (eğer libass için fontpath gerekiyorsa)
-            if (currentFontPath) {
-                 command.addOption('-vf', `subtitles='${assPath.replace(/\\/g, '/')}:fontsdir=/tmp'`);
-            }
+            command = ffmpeg(inputPath)
+                .complexFilter(complexFilter)
+                .outputOptions(['-map', '[out]']);
 
             command
                 .output(outputPath)
