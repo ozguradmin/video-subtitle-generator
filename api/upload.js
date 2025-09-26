@@ -201,9 +201,10 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 );
             });
 
+            const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
+
             command = ffmpeg(inputPath)
-                .videoFilter(drawtextFilters.join(','))
-                .videoFilter(videoResizingFilter); // Zincirleme filtreleme
+                .videoFilter(fullFilter);
 
             command
                 .output(outputPath)
