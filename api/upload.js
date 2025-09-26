@@ -187,8 +187,8 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             logs.push('🔵 MODE: drawtext (her zaman)');
             const defaultColors = ['#FFFF00', '#FFFFFF', '#00FFFF', '#FF00FF', '#00FF00']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
 
-            // Varsayılan font dosyasının yolunu belirle
-            const defaultFontPath = path.resolve(process.cwd(), 'Roboto-Regular.ttf');
+            // Varsayılan font dosyasının yolunu belirle (__dirname API klasörünü gösterecektir)
+            const defaultFontPath = path.resolve(__dirname, 'Roboto-Regular.ttf');
 
             const filters = subtitlesData.subtitles.map((sub) => {
                 let colorHex = defaultColors[0]; // Varsayılan sarı
