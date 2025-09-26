@@ -101,7 +101,7 @@ class GeminiHelper {
 const geminiHelper = new GeminiHelper(process.env.GEMINI_API_KEY || 'fallback-key');
 
 // Base64 olarak kodlanmış Roboto fontu. Bu, Vercel ortamında font olmamasını garanti eder.
-const robotoFontBase64 = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (I'll skip the very long base64 string)";
+const robotoFontBase64 = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (bu sefer gerçek base64 string)";
 
 // Multer konfigürasyonu
 const storage = multer.memoryStorage();

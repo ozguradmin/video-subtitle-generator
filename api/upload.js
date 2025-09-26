@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const os = require('os');
 
 // Base64 olarak kodlanmış Roboto fontu. Bu, Vercel ortamında font olmamasını garanti eder.
-const robotoFontBase64 = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (I'll skip the very long base64 string)";
+const robotoFontBase64 = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (bu sefer gerçek base64 string)";
 
 // FFmpeg path'ini ayarla
 ffmpeg.setFfmpegPath(ffmpegPath);
