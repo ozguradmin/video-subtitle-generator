@@ -136,33 +136,24 @@ function hexToDrawtext(hex) {
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
     
-    // ASS dosyası başlığı
+    // Çok basit ASS dosyası - font belirtmeden
     let assContent = `[Script Info]
 Title: Generated Subtitles
 ScriptType: v4.00+
-ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,${fontSize},&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,2,2,2,10,10,${marginV},1
+Style: Default,,${fontSize},&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,2,2,2,10,10,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
-
-    const defaultColors = ['&H0000FFFF&', '&H00FFFFFF&', '&H00FFFF00&', '&H00FF00FF&', '&H0000FF00&']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
-    const usedStyles = new Set();
-    const italicValue = italic ? '1' : '0';
-    
-    // Vercel'de mevcut olan fontları kullan
-    const safeFontName = 'Arial'; // Basit ve güvenilir font
 
     subtitlesData.subtitles.forEach((sub, index) => {
         const startTime = formatTime(sub.startTime);
         const endTime = formatTime(sub.endTime);
         const text = sub.line.replace(/\n/g, '\\N');
         
-        // Basit format - sadece Default style kullan
         assContent += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}\n`;
     });
     
@@ -212,20 +203,8 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             fs.writeFileSync(assPath, assContent);
             logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
-            // FFmpeg komutunu oluştur - drawtext kullan (fontfile olmadan)
-            let drawtextFilters = [];
-            
-            subtitlesData.subtitles.forEach((sub, index) => {
-                const startTime = sub.startTime;
-                const endTime = sub.endTime;
-                const text = sub.line.replace(/'/g, "\\'").replace(/:/g, "\\:");
-                
-                drawtextFilters.push(
-                    `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${startTime},${endTime})'`
-                );
-            });
-            
-            const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
+            // FFmpeg komutunu oluştur - subtitles filtresi kullan (daha güvenilir)
+            const fullFilter = `${videoResizingFilter},subtitles=filename='${assPath.replace(/\\/g, '/')}'`;
             
             command = ffmpeg(inputPath)
                 .videoFilter(fullFilter);
