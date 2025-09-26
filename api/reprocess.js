@@ -214,10 +214,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 .on('start', (commandLine) => {
                     logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
                     logs.push(commandLine);
-                    logs.push('📋 Drawtext filtreleri:');
-                    drawtextFilters.forEach((filter, index) => {
-                        logs.push(`  ${index + 1}. ${filter}`);
-                    });
                 })
                 .on('progress', (progress) => {
                     if (progress.percent) {
