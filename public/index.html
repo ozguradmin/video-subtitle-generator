@@ -77,10 +77,10 @@
                         <div x-show="logs.length > 0">
                            <div class="p-4 rounded bg-gray-100 dark:bg-gray-800 h-48 overflow-y-auto">
                                 <pre class="text-xs text-gray-600 dark:text-gray-400" x-text="logs.join('\n') || 'Görüntülenecek kayıt yok.'"></pre>
-                            </div>
-                        </div>
-                    </div>
+            </div>
                 </div>
+            </div>
+        </div>
             </main>
         </div>
 
@@ -441,7 +441,7 @@
                 
                 // Anlık log güncellemesi için
                 this.addLog('📤 Video yükleniyor...');
-                
+
                 const formData = new FormData();
                 formData.append('video', videoInput.files[0]);
 
@@ -508,7 +508,7 @@
                 this.logs = []; // Logları temizle
                 this.updateStatus('Değişiklikler uygulanıyor...', 'processing');
                 this.addLog('🔄 Video yeniden işleniyor...');
-
+                
                 const formData = new FormData();
                 formData.append('video', this.originalVideoFile); // Orijinal video dosyasını gönder
                 
@@ -551,7 +551,7 @@
                         // Base64 video data'sını blob URL'e çevir
                         const videoBlob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: 'video/mp4' });
                         this.videoPreviewUrl = URL.createObjectURL(videoBlob);
-                    } else {
+                                } else {
                         this.videoPreviewUrl = result.downloadUrl + `?t=${new Date().getTime()}`; // Cache bust
                     }
                     
