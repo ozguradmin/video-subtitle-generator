@@ -31,6 +31,18 @@ function formatTime(totalSeconds) {
     return `${hours}:${pad(minutes)}:${pad(seconds)}.${pad(centiseconds)}`;
 }
 
+function hexToDrawtext(hex) {
+    if (!hex) return 'white';
+    // ASS formatındaki &HBBGGRR& formatını veya #RRGGBB formatını destekler
+    if (hex.startsWith('&H')) {
+        const b = hex.substring(2, 4);
+        const g = hex.substring(4, 6);
+        const r = hex.substring(6, 8);
+        return `0x${r}${g}${b}`;
+    }
+    return `0x${hex.substring(1)}`;
+}
+
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
     let assHeader = `[Script Info]
@@ -171,94 +183,95 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
 
         const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
 
-        let command;
-        if (fontFile) {
-            logs.push('🔵 MODE: drawtext (özel font var)');
-            try {
-                const filters = subtitlesData.subtitles.map((sub, index) => {
-                    let color = '#FFFF00';
-                    if (sub.overrideColor) {
-                        color = sub.overrideColor;
-                    } else if (sub.speaker && speakerColors[sub.speaker]) {
-                        color = speakerColors[sub.speaker];
-                    }
+        try {
+            logs.push('🔵 MODE: drawtext (her zaman)');
+            const defaultColors = ['#FFFF00', '#FFFFFF', '#00FFFF', '#FF00FF', '#00FF00']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
 
-                    return {
-                        filter: `drawtext=fontfile='${fontFile.path}':text='${sub.line.replace(/'/g, "\\'")}':fontsize=${fontSize}:fontcolor=${color}:x=(w-text_w)/2:y=h-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
-                    };
-                });
+            const filters = subtitlesData.subtitles.map((sub) => {
+                let colorHex = defaultColors[0]; // Varsayılan sarı
+                const speakerIndex = [...new Set(subtitlesData.subtitles.map(s => s.speaker))].indexOf(sub.speaker);
 
-                const complexFilters = [
-                    { filter: videoResizingFilter, inputs: '0:v', outputs: 'padded' },
-                    ...filters.map(f => ({ ...f, inputs: 'padded', outputs: 'padded' }))
-                ];
-
-                command = ffmpeg(inputPath).complexFilter(complexFilters, 'padded');
-            } catch (e) {
-                const errorMsg = '❌ drawtext hazırlığında hata: ' + (e?.message || e);
-                logs.push(errorMsg);
-                reject({ error: new Error(errorMsg), logs });
-                return;
-            }
-        } else {
-            logs.push('🔵 MODE: subtitles/ASS (özel font yok)');
-            const assContent = convertToAss(subtitlesData, { fontName: 'Arial', fontSize: fontSize, marginV: marginV, italic: italic, speakerColors: speakerColors });
-            const assFilename = `subtitle_${uuidv4()}.ass`;
-            const assPath = path.join(tempDir, assFilename);
-            fs.writeFileSync(assPath, assContent);
-            logs.push('✅ Geçici .ass altyazı dosyası oluşturuldu.');
-
-            const videoFilter = `${videoResizingFilter},subtitles=filename='${assPath}'`;
-            command = ffmpeg(inputPath).videoFilter(videoFilter);
-        }
-
-        command
-            .output(outputPath)
-            .on('start', (commandLine) => {
-                logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
-                logs.push(commandLine);
-            })
-            .on('progress', (progress) => {
-                if (progress.percent) {
-                    logs.push(`⏳ İlerleme: %${Math.round(progress.percent)}`);
-                }
-            })
-            .on('end', () => {
-                logs.push('✅ Altyazı yakma işlemi başarıyla tamamlandı.');
-                
-                // Output dosyasını oku
-                const outputBuffer = fs.readFileSync(outputPath);
-                
-                // Temp dosyaları temizle
-                try {
-                    fs.unlinkSync(inputPath);
-                    fs.unlinkSync(outputPath);
-                } catch (e) {
-                    console.log('Temp dosya temizleme hatası:', e.message);
+                if (sub.overrideColor) {
+                    colorHex = sub.overrideColor;
+                } else if (sub.speaker && speakerColors[sub.speaker]) {
+                    colorHex = speakerColors[sub.speaker];
+                } else if (sub.speaker) {
+                    colorHex = defaultColors[speakerIndex % defaultColors.length];
                 }
                 
-                resolve({ 
-                    outputBuffer, 
-                    logs,
-                    filename: outputFilename
-                });
-            })
-            .on('error', (err, stdout, stderr) => {
-                const errorMsg = '❌ FFmpeg hatası: ' + err.message;
-                logs.push(errorMsg, '--- FFmpeg Hata Detayı (stderr) ---', stderr || 'stderr boş', '------------------------------------');
-                
-                // Temp dosyaları temizle
-                try {
-                    if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                } catch (e) {
-                    console.log('Temp dosya temizleme hatası:', e.message);
+                const fontcolor = hexToDrawtext(colorHex);
+                const text = sub.line.replace(/'/g, `''`).replace(/:/g, `\\:`);
+
+                let filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontcolor}:x=(w-text_w)/2:y=h-line_h-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`;
+
+                if (fontFile && fontFile.buffer) {
+                    const tempFontPath = path.join(tempDir, `font_${uuidv4()}`);
+                    fs.writeFileSync(tempFontPath, fontFile.buffer);
+                    filterString += `:fontfile='${tempFontPath}'`;
+                } else if (italic) {
+                    // Not: Bu, Vercel'in varsayılan fontunda çalışmayabilir
+                    filterString += ":style=Italic";
                 }
                 
-                reject({ error: err, logs });
+                return { filter: filterString };
             });
-        
-        command.run();
+
+            const complexFilters = [
+                { filter: videoResizingFilter, inputs: '0:v', outputs: 'padded' },
+                ...filters.map(f => ({ ...f, inputs: 'padded', outputs: 'padded' }))
+            ];
+
+            const command = ffmpeg(inputPath).complexFilter(complexFilters, 'padded');
+            
+            command
+                .output(outputPath)
+                .on('start', (commandLine) => {
+                    logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
+                    logs.push(commandLine);
+                })
+                .on('progress', (progress) => {
+                    if (progress.percent) {
+                        logs.push(`⏳ İlerleme: %${Math.round(progress.percent)}`);
+                    }
+                })
+                .on('end', () => {
+                    logs.push('✅ Altyazı yakma işlemi başarıyla tamamlandı.');
+                    const outputBuffer = fs.readFileSync(outputPath);
+                    
+                    try {
+                        fs.unlinkSync(inputPath);
+                        fs.unlinkSync(outputPath);
+                    } catch (e) {
+                        logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
+                    }
+                    
+                    resolve({ 
+                        outputBuffer, 
+                        logs,
+                        filename: outputFilename
+                    });
+                })
+                .on('error', (err, stdout, stderr) => {
+                    const errorMsg = '❌ FFmpeg hatası: ' + err.message;
+                    logs.push(errorMsg, '--- FFmpeg Hata Detayı (stderr) ---', stderr || 'stderr boş', '------------------------------------');
+                    
+                    try {
+                        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+                        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                    } catch (e) {
+                        logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
+                    }
+                    
+                    reject({ error: err, logs });
+                });
+
+            command.run();
+
+        } catch (e) {
+            const errorMsg = '❌ drawtext hazırlığında hata: ' + (e?.message || e);
+            logs.push(errorMsg);
+            reject({ error: new Error(errorMsg), logs });
+        }
     });
 }
 

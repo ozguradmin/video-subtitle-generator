@@ -1,10 +1,7 @@
 [build]
-  command = "npm install"
-  functions = "netlify/functions"
+  command = "echo 'Build command goes here'"
   publish = "public"
-
-[build.environment]
-  NODE_VERSION = "18"
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
@@ -15,3 +12,4 @@
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false # API rotalarına müdahale etmemesi için
