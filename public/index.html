@@ -52,7 +52,7 @@
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">1. Video Yükle</h2>
                         <div class="flex flex-col sm:flex-row gap-4 items-end">
                             <div class="w-full sm:flex-1 relative">
-                                <input id="video-upload" type="file" @change="fileName = $event.target.files[0]?.name || 'None'" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                <input id="video-upload" type="file" @change="handleFileSelect($event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                                 <label for="video-upload" class="flex items-center justify-center w-full h-12 px-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary">
                                     <span class="material-symbols-outlined mr-2">upload_file</span>
                                     <span>Video Seç</span>
@@ -296,9 +296,9 @@
             logsOpen: false,
             logCopyButtonText: 'Kopyala',
             
-            // Video & Subtitle Data
-            currentVideoPath: null,
-            videoPreviewUrl: null,
+            originalVideoFile: null, // Orijinal video dosyasını saklamak için
+            currentVideoPath: '', // Bu artık Vercel için kullanılmayacak
+            videoPreviewUrl: '',
             currentSubtitles: [],
             activeSubtitleIndex: 0,
             history: [],
@@ -351,6 +351,17 @@
             },
 
             // --- UI Helpers ---
+            handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.fileName = file.name;
+                    this.originalVideoFile = file; // Dosyayı state'e kaydet
+                } else {
+                    this.fileName = 'Hiçbiri';
+                    this.originalVideoFile = null;
+                }
+            },
+            
             addLog(message) {
                 this.logs.push(`[${new Date().toLocaleTimeString()}] ${message}`);
             },
@@ -488,7 +499,7 @@
             },
 
             async reprocessVideo() {
-                if (!this.currentVideoPath || !this.currentSubtitles) {
+                if (!this.originalVideoFile || !this.currentSubtitles) {
                     this.updateStatus('Yeniden işlemek için video verisi bulunamadı.', 'error');
                     return;
                 }
@@ -499,7 +510,7 @@
                 this.addLog('🔄 Video yeniden işleniyor...');
 
                 const formData = new FormData();
-                formData.append('videoPath', this.currentVideoPath);
+                formData.append('video', this.originalVideoFile); // Orijinal video dosyasını gönder
                 
                 // Convert times back to float for processing
                 const subtitlesToProcess = this.currentSubtitles.map(s => ({

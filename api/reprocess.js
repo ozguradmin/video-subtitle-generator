@@ -99,6 +99,11 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { fontFile = null, fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
     const logs = [];
 
+    // Font dosyasını api/ klasöründen okuyup /tmp'ye yaz
+    const defaultFontBuffer = fs.readFileSync(path.resolve(__dirname, 'Roboto-Regular.ttf'));
+    const defaultFontPath = path.join('/tmp', `Roboto-Regular-${uuidv4()}.ttf`);
+    fs.writeFileSync(defaultFontPath, defaultFontBuffer);
+
     return new Promise((resolve, reject) => {
         const uniqueSuffix = Date.now();
         const outputFilename = `subtitled_video_${uniqueSuffix}.mp4`;
@@ -114,9 +119,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         try {
             logs.push('🔵 MODE: drawtext (her zaman)');
             const defaultColors = ['#FFFF00', '#FFFFFF', '#00FFFF', '#FF00FF', '#00FF00']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
-
-            // Varsayılan font dosyasının yolunu belirle (__dirname API klasörünü gösterecektir)
-            const defaultFontPath = path.resolve(__dirname, 'Roboto-Regular.ttf');
 
             const filters = subtitlesData.subtitles.map((sub) => {
                 let colorHex = defaultColors[0]; // Varsayılan sarı
@@ -177,6 +179,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         fs.unlinkSync(inputPath);
                         fs.unlinkSync(outputPath);
+                        fs.unlinkSync(defaultFontPath); // Geçici fontu temizle
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
                     }
@@ -194,6 +197,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                        if (fs.existsSync(defaultFontPath)) fs.unlinkSync(defaultFontPath); // Geçici fontu temizle
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
                     }
