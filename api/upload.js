@@ -84,7 +84,8 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
 }
 
 async function generateSubtitles(videoBuffer) {
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'fallback-key') {
+    // Vercel'de AI API key kontrolü
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'fallback-key' || process.env.GEMINI_API_KEY === '') {
         return {
             subtitles: [
                 { speaker: 'Speaker 1', startTime: 0, endTime: 3, line: 'Bu bir test altyazısıdır.' },
@@ -108,32 +109,40 @@ async function generateSubtitles(videoBuffer) {
         const response = await result.response;
         const text = response.text();
         
-        console.log('AI Response:', text);
+        // JSON'u bul ve parse et - daha güçlü regex
+        let jsonStr = null;
         
-        // JSON'u bul ve parse et
-        let jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            // Eğer ```json``` blokları varsa onları dene
-            jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+        // Önce ```json``` bloklarını ara
+        const jsonBlockMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonBlockMatch) {
+            jsonStr = jsonBlockMatch[1];
+        } else {
+            // Sonra düz JSON ara
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                jsonMatch = [jsonMatch[1]];
+                jsonStr = jsonMatch[0];
             }
         }
         
-        if (jsonMatch) {
-            const jsonStr = jsonMatch[0];
-            console.log('Extracted JSON:', jsonStr);
-            return JSON.parse(jsonStr);
-        } else {
-            console.log('No JSON found in response');
-            // Fallback: basit altyazı oluştur
-            return {
-                subtitles: [
-                    { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'Video analiz ediliyor...' },
-                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Altyazı oluşturuluyor...' }
-                ]
-            };
+        if (jsonStr) {
+            try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.subtitles && Array.isArray(parsed.subtitles)) {
+                    return parsed;
+                }
+            } catch (parseError) {
+                console.error('JSON parse hatası:', parseError);
+            }
         }
+        
+        // Eğer hiçbir şey çalışmazsa fallback döndür
+        return {
+            subtitles: [
+                { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'Video analiz ediliyor...' },
+                { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Altyazı oluşturuluyor...' }
+            ]
+        };
+        
     } catch (error) {
         console.error('AI altyazı oluşturma hatası:', error);
         // Hata durumunda fallback döndür
