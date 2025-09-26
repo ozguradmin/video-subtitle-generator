@@ -235,37 +235,73 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 .on('start', (commandLine) => {
                     logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
                     logs.push(commandLine);
+                    logs.push('📋 Drawtext filtreleri:');
+                    drawtextFilters.forEach((filter, index) => {
+                        logs.push(`  ${index + 1}. ${filter}`);
+                    });
                 })
                 .on('progress', (progress) => {
                     if (progress.percent) {
                         logs.push(`⏳ İlerleme: %${Math.round(progress.percent)}`);
                     }
+                    if (progress.frames) {
+                        logs.push(`🎬 İşlenen frame sayısı: ${progress.frames}`);
+                    }
+                    if (progress.currentFps) {
+                        logs.push(`📊 Mevcut FPS: ${progress.currentFps}`);
+                    }
+                })
+                .on('stderr', (stderrLine) => {
+                    logs.push(`🔍 FFmpeg stderr: ${stderrLine}`);
+                })
+                .on('stdout', (stdoutLine) => {
+                    logs.push(`📤 FFmpeg stdout: ${stdoutLine}`);
                 })
                 .on('end', () => {
                     logs.push('✅ Altyazı yakma işlemi başarıyla tamamlandı.');
                     
-                    // Output dosyasını oku
-                    const outputBuffer = fs.readFileSync(outputPath);
-                    
-                    // Temp dosyaları temizle
+                    // Output dosyasını kontrol et
                     try {
-                        fs.unlinkSync(inputPath);
-                        fs.unlinkSync(outputPath);
-                        if (assPath) fs.unlinkSync(assPath);
-                        if (currentFontPath) fs.unlinkSync(currentFontPath);
+                        const outputStats = fs.statSync(outputPath);
+                        logs.push(`📁 Output dosya boyutu: ${outputStats.size} bytes`);
+                        
+                        const outputBuffer = fs.readFileSync(outputPath);
+                        logs.push(`✅ Output buffer okundu: ${outputBuffer.length} bytes`);
+                        
+                        // Temp dosyaları temizle
+                        try {
+                            fs.unlinkSync(inputPath);
+                            fs.unlinkSync(outputPath);
+                            if (assPath) fs.unlinkSync(assPath);
+                            if (currentFontPath) fs.unlinkSync(currentFontPath);
+                            logs.push('🗑️ Temp dosyalar temizlendi');
+                        } catch (e) {
+                            logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
+                        }
+                        
+                        resolve({ 
+                            outputBuffer, 
+                            logs,
+                            filename: outputFilename
+                        });
                     } catch (e) {
-                        logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
+                        logs.push(`❌ Output dosya okuma hatası: ${e.message}`);
+                        reject({ error: e, logs });
                     }
-                    
-                    resolve({ 
-                        outputBuffer, 
-                        logs,
-                        filename: outputFilename
-                    });
                 })
                 .on('error', (err, stdout, stderr) => {
                     const errorMsg = '❌ FFmpeg hatası: ' + err.message;
-                    logs.push(errorMsg, '--- FFmpeg Hata Detayı (stderr) ---', stderr || 'stderr boş', '------------------------------------');
+                    logs.push(errorMsg);
+                    logs.push('--- FFmpeg Hata Detayı (stdout) ---');
+                    logs.push(stdout || 'stdout boş');
+                    logs.push('--- FFmpeg Hata Detayı (stderr) ---');
+                    logs.push(stderr || 'stderr boş');
+                    logs.push('--- FFmpeg Error Object ---');
+                    logs.push(`Name: ${err.name}`);
+                    logs.push(`Message: ${err.message}`);
+                    logs.push(`Code: ${err.code}`);
+                    logs.push(`Signal: ${err.signal}`);
+                    logs.push('------------------------------------');
                     
                     // Temp dosyaları temizle
                     try {
@@ -273,6 +309,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
                         if (assPath) fs.unlinkSync(assPath);
                         if (currentFontPath) fs.unlinkSync(currentFontPath);
+                        logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
                     }
