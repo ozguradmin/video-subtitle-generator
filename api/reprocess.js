@@ -115,6 +115,9 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             logs.push('🔵 MODE: drawtext (her zaman)');
             const defaultColors = ['#FFFF00', '#FFFFFF', '#00FFFF', '#FF00FF', '#00FF00']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
 
+            // Varsayılan font dosyasının yolunu belirle
+            const defaultFontPath = path.resolve(process.cwd(), 'Roboto-Regular.ttf');
+
             const filters = subtitlesData.subtitles.map((sub) => {
                 let colorHex = defaultColors[0]; // Varsayılan sarı
                 const speakerIndex = [...new Set(subtitlesData.subtitles.map(s => s.speaker))].indexOf(sub.speaker);
@@ -130,14 +133,19 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 const fontcolor = hexToDrawtext(colorHex);
                 const text = sub.line.replace(/'/g, `''`).replace(/:/g, `\\:`);
 
+                let fontPathForFilter = defaultFontPath;
+
                 let filterString = `drawtext=text='${text}':fontsize=${fontSize}:fontcolor=${fontcolor}:x=(w-text_w)/2:y=h-line_h-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`;
 
                 if (fontFile && fontFile.buffer) {
-                    const tempFontPath = path.join(tempDir, `font_${uuidv4()}`);
+                    const tempFontPath = path.join(tempDir, `font_${uuidv4()}.ttf`);
                     fs.writeFileSync(tempFontPath, fontFile.buffer);
-                    filterString += `:fontfile='${tempFontPath}'`;
-                } else if (italic) {
-                    // Not: Bu, Vercel'in varsayılan fontunda çalışmayabilir
+                    fontPathForFilter = tempFontPath;
+                }
+                
+                filterString += `:fontfile='${fontPathForFilter}'`;
+
+                if (italic) {
                     filterString += ":style=Italic";
                 }
                 
