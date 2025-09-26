@@ -53,25 +53,15 @@
                         <div class="flex flex-col sm:flex-row gap-4 items-end">
                             <div class="w-full sm:flex-1 relative">
                                 <input id="video-upload" type="file" @change="handleFileSelect($event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                                <label for="video-upload"
-                                        class="flex items-center justify-center w-full h-12 px-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary">
-                                        <span class="material-symbols-outlined mr-2">upload_file</span>
-                                        <span>Video Seç</span>
-                                    </label>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Seçilen dosya: <span class="font-medium" x-text="fileName"></span></p>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Transcript Input Section -->
-                        <div class="rounded-lg bg-background-light/50 dark:bg-background-dark/50 p-6 shadow">
-                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">2. Video Ses Dökümünü Girin</h2>
-                            <textarea x-model="videoTranscript" placeholder="Videonun ses dökümünü buraya yapıştırın (örn: 'Merhaba, bu bir deneme videosu.')" class="w-full h-32 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-primary focus:border-primary"></textarea>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">AI, altyazıları bu metne göre oluşturacaktır.</p>
-                        </div>
-
-                        <button @click="handleUpload" :disabled="isLoading || !originalVideoFile || !videoTranscript" class="w-full flex items-center justify-center rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                            <span class="truncate" x-text="isLoading ? 'İşleniyor...' : 'Yükle ve Altyazı Oluştur'">Yükle ve Altyazı Oluştur</span>
-                        </button>
+                                <label for="video-upload" class="flex items-center justify-center w-full h-12 px-4 rounded border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-pointer hover:border-primary hover:text-primary">
+                                    <span class="material-symbols-outlined mr-2">upload_file</span>
+                                    <span>Video Seç</span>
+                                </label>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Seçilen dosya: <span class="font-medium" x-text="fileName">None</span></p>
+                </div>
+                            <button @click="handleUpload" :disabled="isLoading" class="w-full sm:w-auto flex items-center justify-center rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-opacity-90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                <span class="truncate" x-text="isLoading ? 'İşleniyor...' : 'Yükle ve Altyazı Oluştur'"></span>
+                            </button>
                 </div>
                 </div>
                     <!-- Status/Log Section -->
@@ -300,14 +290,13 @@
             currentScreen: 'upload', // 'upload', 'preview', 'editor', 'style_editor'
             fileName: 'None',
             statusMessage: '',
-            statusType: 'success', // 'success', 'error', 'processing'
+            statusType: 'processing', // 'processing', 'success', 'error'
             logs: [],
             isLoading: false,
             logsOpen: false,
             logCopyButtonText: 'Kopyala',
             
             originalVideoFile: null, // Orijinal video dosyasını saklamak için
-            videoTranscript: '', // Video transkriptini saklamak için
             currentVideoPath: '', // Bu artık Vercel için kullanılmayacak
             videoPreviewUrl: '',
             currentSubtitles: [],
@@ -440,12 +429,9 @@
 
             // --- API Calls ---
             async handleUpload() {
-                if (!this.originalVideoFile) {
+                const videoInput = document.getElementById('video-upload');
+                if (!videoInput.files[0]) {
                     this.updateStatus('Lütfen önce bir video dosyası seçin.', 'error');
-                    return;
-                }
-                if (!this.videoTranscript) {
-                    this.updateStatus('Lütfen videonun ses dökümünü girin.', 'error');
                     return;
                 }
 
@@ -455,10 +441,9 @@
                 
                 // Anlık log güncellemesi için
                 this.addLog('📤 Video yükleniyor...');
-                
+
                 const formData = new FormData();
-                formData.append('video', this.originalVideoFile);
-                formData.append('transcript', this.videoTranscript); // Transkripti gönder
+                formData.append('video', videoInput.files[0]);
 
                 try {
                     const response = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -523,10 +508,9 @@
                 this.logs = []; // Logları temizle
                 this.updateStatus('Değişiklikler uygulanıyor...', 'processing');
                 this.addLog('🔄 Video yeniden işleniyor...');
-
+                
                 const formData = new FormData();
                 formData.append('video', this.originalVideoFile); // Orijinal video dosyasını gönder
-                formData.append('transcript', this.videoTranscript); // Transkripti gönder (API bunu görmezden gelebilir ama tutarlılık için gönderiyorum)
                 
                 // Convert times back to float for processing
                 const subtitlesToProcess = this.currentSubtitles.map(s => ({

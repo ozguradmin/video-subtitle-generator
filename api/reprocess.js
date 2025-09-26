@@ -112,18 +112,19 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
 
         let command;
-        let currentFontPath = null; // fontfile için path
-
-        if (fontFile && fontFile.buffer) {
-            logs.push('🔵 MODE: subtitles/ASS (özel font var)');
-            const tempFontPath = path.join(tempDir, `custom_font_${uuidv4()}.ttf`);
-            fs.writeFileSync(tempFontPath, fontFile.buffer);
-            currentFontPath = tempFontPath;
-        } else {
-            logs.push('🔵 MODE: subtitles/ASS (varsayılan font)');
-        }
+        let currentFontPath = null;
+        let assPath = null;
 
         try {
+            logs.push('🔵 MODE: subtitles/ASS (libass kullanılıyor)');
+
+            // Eğer özel font varsa, dosyayı /tmp'ye yaz
+            if (fontFile && fontFile.buffer) {
+                currentFontPath = path.join(tempDir, `custom_font_${uuidv4()}.ttf`);
+                fs.writeFileSync(currentFontPath, fontFile.buffer);
+                logs.push(`📁 Özel font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
+            }
+            
             // ASS içeriğini oluştur
             const assContent = convertToAss(subtitlesData, { 
                 fontName: currentFontPath ? path.basename(currentFontPath, path.extname(currentFontPath)) : 'Arial', 
@@ -133,19 +134,29 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 speakerColors: speakerColors 
             });
             const assFilename = `subtitle_${uuidv4()}.ass`;
-            const assPath = path.join(tempDir, assFilename);
+            assPath = path.join(tempDir, assFilename);
             fs.writeFileSync(assPath, assContent);
-            logs.push('✅ Geçici .ass altyazı dosyası oluşturuldu.');
+            logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
             // FFmpeg komutunu oluştur
-            const subtitlesFilterString = `subtitles=filename='${assPath}'`;
+            let subtitlesFilterString = `subtitles=filename='${assPath.replace(/\\/g, '/')}'`;
             
-            // Eğer özel font varsa, ffmpeg komutuna -attach parametresini ekle
-            // Vercel ortamında direkt font dosyası pathi ile çalışmayabilir, libass'ın kendi font mekanizması var.
-            // Bu yüzden sadece ass dosyasına gömüyoruz font bilgisini.
+            // Eğer özel font varsa, ffmpeg'e font dosyasının yolunu ver
+            // Libass fontconfig'i kullanabilir veya direkt fontfile path'i alabilir.
+            // Burada .ass dosyasının içindeki fontname kullanıldığı için, direkt fontfile parametresi yerine
+            // ass dosyasında belirtilen fontu libass bulmaya çalışır.
+            // Vercel'de fontlar /usr/share/fonts içinde olabilir.
+            // En sağlam yol, eğer özel font varsa, libass'ın o fontu kullanmasını sağlamak için
+            // ass dosyasında fontfamily olarak belirtmek ve fontu da tmp'ye yazıp erişilebilir kılmak.
+            // convertToAss zaten fontName'i ass içine yazıyor.
 
             command = ffmpeg(inputPath).videoFilter(`${videoResizingFilter},${subtitlesFilterString}`);
             
+            // FFmpeg global ayarları (eğer libass için fontpath gerekiyorsa)
+            if (currentFontPath) {
+                 command.addOption('-vf', `subtitles='${assPath.replace(/\\/g, '/')}:fontsdir=/tmp'`);
+            }
+
             command
                 .output(outputPath)
                 .on('start', (commandLine) => {
@@ -167,8 +178,8 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         fs.unlinkSync(inputPath);
                         fs.unlinkSync(outputPath);
-                        if (assPath) fs.unlinkSync(assPath); // ass dosyasını temizle
-                        if (currentFontPath) fs.unlinkSync(currentFontPath); // özel font dosyasını temizle
+                        if (assPath) fs.unlinkSync(assPath);
+                        if (currentFontPath) fs.unlinkSync(currentFontPath);
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
                     }
@@ -226,20 +237,18 @@ module.exports = async (req, res) => {
         // Multer ile dosya işleme
         upload.fields([
             { name: 'video', maxCount: 1 },
-            { name: 'font', maxCount: 1 },
-            { name: 'transcript', maxCount: 1 } // Transkripti de al
+            { name: 'font', maxCount: 1 }
         ])(req, res, async (err) => {
             if (err) {
                 logs.push('❌ Dosya yükleme hatası: ' + err.message);
                 return res.status(400).json({ success: false, message: 'Dosya yükleme hatası', logs });
             }
 
-            const { subtitles, fontSize, marginV, italic, speakerColors } = req.body;
-            const videoTranscript = req.body.transcript; // Transkripti al
+            const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
 
-            if (!subtitles) {
-                logs.push('❌ Altyazı verisi gereklidir');
-                return res.status(400).json({ success: false, message: 'Altyazı verisi gereklidir', logs });
+            if (!videoPath || !subtitles) {
+                logs.push('❌ Video yolu ve altyazı verisi gereklidir');
+                return res.status(400).json({ success: false, message: 'Video yolu ve altyazı verisi gereklidir', logs });
             }
 
             try {
