@@ -138,52 +138,38 @@ function hexToDrawtext(hex) {
 
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
-    let assHeader = `[Script Info]\nTitle: Generated Subtitles\nScriptType: v4.00+\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n`;
+    
+    // ASS dosyası başlığı
+    let assContent = `[Script Info]
+Title: Generated Subtitles
+ScriptType: v4.00+
+ScaledBorderAndShadow: yes
 
-    let stylesSection = '';
-    let dialogueSection = '[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,${fontSize},&H00FFFFFF&,&H000000FF&,&H00000000&,&H80000000&,0,0,0,0,100,100,0,0,1,2,2,2,10,10,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
 
     const defaultColors = ['&H0000FFFF&', '&H00FFFFFF&', '&H00FFFF00&', '&H00FF00FF&', '&H0000FF00&']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
     const usedStyles = new Set();
-    const italicValue = italic ? '1' : '0'; // Italic değeri sabit tutulacak
+    const italicValue = italic ? '1' : '0';
     
-    // Vercel'de mevcut olan fontları kullan - DejaVu Sans daha güvenilir
-    const safeFontName = 'DejaVu Sans'; // Vercel'de garantili olan font
+    // Vercel'de mevcut olan fontları kullan
+    const safeFontName = 'Arial'; // Basit ve güvenilir font
 
     subtitlesData.subtitles.forEach((sub, index) => {
-        let styleName = 'Default';
-        if (sub.speaker) {
-            styleName = `Speaker_${sub.speaker.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        }
-
-        if (!usedStyles.has(styleName)) {
-            usedStyles.add(styleName);
-            
-            let color = defaultColors[0];
-            if (sub.overrideColor) {
-                color = sub.overrideColor;
-            } else if (sub.speaker && speakerColors[sub.speaker]) {
-                // Burada hex rengini &HBBGGRR& formatına dönüştürmeliyiz
-                const hexColor = speakerColors[sub.speaker].startsWith('#') ? speakerColors[sub.speaker].substring(1) : speakerColors[sub.speaker];
-                color = `&H00${hexColor.substring(4, 6)}${hexColor.substring(2, 4)}${hexColor.substring(0, 2)}&`;
-            } else if (sub.speaker) {
-                const speakerIndex = [...new Set(subtitlesData.subtitles.map(s => s.speaker))].indexOf(sub.speaker);
-                color = defaultColors[speakerIndex % defaultColors.length];
-            }
-            
-            stylesSection += `Style: ${styleName},${safeFontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
-        }
-
         const startTime = formatTime(sub.startTime);
         const endTime = formatTime(sub.endTime);
         const text = sub.line.replace(/\n/g, '\\N');
-        dialogueSection += `Dialogue: 0,${startTime},${endTime},${styleName},,0,0,0,,${text}\n`;
+        
+        // Basit format - sadece Default style kullan
+        assContent += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}\n`;
     });
     
-    if (stylesSection === '') {
-        stylesSection += `Style: Default,${fontName},${fontSize},&H00FFFF&,&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
-    }
-    return assHeader + stylesSection + dialogueSection;
+    return assContent;
 }
 
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
