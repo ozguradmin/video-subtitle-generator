@@ -226,18 +226,20 @@ module.exports = async (req, res) => {
         // Multer ile dosya işleme
         upload.fields([
             { name: 'video', maxCount: 1 },
-            { name: 'font', maxCount: 1 }
+            { name: 'font', maxCount: 1 },
+            { name: 'transcript', maxCount: 1 } // Transkripti de al
         ])(req, res, async (err) => {
             if (err) {
                 logs.push('❌ Dosya yükleme hatası: ' + err.message);
                 return res.status(400).json({ success: false, message: 'Dosya yükleme hatası', logs });
             }
 
-            const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
+            const { subtitles, fontSize, marginV, italic, speakerColors } = req.body;
+            const videoTranscript = req.body.transcript; // Transkripti al
 
-            if (!videoPath || !subtitles) {
-                logs.push('❌ Video yolu ve altyazı verisi gereklidir');
-                return res.status(400).json({ success: false, message: 'Video yolu ve altyazı verisi gereklidir', logs });
+            if (!subtitles) {
+                logs.push('❌ Altyazı verisi gereklidir');
+                return res.status(400).json({ success: false, message: 'Altyazı verisi gereklidir', logs });
             }
 
             try {

@@ -95,7 +95,7 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
     return assHeader + stylesSection + dialogueSection;
 }
 
-async function generateSubtitles(videoBuffer) {
+async function generateSubtitles(videoTranscript) {
     // Vercel'de AI API key kontrolü
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'fallback-key' || process.env.GEMINI_API_KEY === '') {
         return {
@@ -108,7 +108,9 @@ async function generateSubtitles(videoBuffer) {
 
     try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
-        const prompt = `Bu video dosyasından altyazı oluştur. Video içeriğini analiz et ve konuşmacıları ayırt ederek altyazılar oluştur. Sadece JSON formatında döndür, başka hiçbir açıklama ekleme:
+        const prompt = `Aşağıdaki metinden altyazı oluştur. Konuşmacıları ayırt etmeye çalış ve her bir altyazı için yaklaşık bir başlangıç ve bitiş zamanı belirle (video süresi bilinmediği için bu zamanlar yaklaşık olacaktır). Sadece JSON formatında döndür, başka hiçbir açıklama ekleme:
+
+Metin: ${videoTranscript}
 
 {
     "subtitles": [
@@ -143,7 +145,7 @@ async function generateSubtitles(videoBuffer) {
                     return parsed;
                 }
             } catch (parseError) {
-                console.error('JSON parse hatası:', parseError);
+                // Hata durumunda loglama
             }
         }
         
@@ -156,8 +158,7 @@ async function generateSubtitles(videoBuffer) {
         };
         
     } catch (error) {
-        console.error('AI altyazı oluşturma hatası:', error);
-        // Hata durumunda fallback döndür
+        // AI altyazı oluşturma hatası durumunda fallback döndür
         return {
             subtitles: [
                 { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI hatası - Fallback altyazı' },
@@ -296,26 +297,38 @@ module.exports = async (req, res) => {
         const logs = ['\n--- Video Yükleme İsteği Aldı ---'];
         
         // Multer ile dosya işleme
-        upload.single('video')(req, res, async (err) => {
+        upload.fields([
+            { name: 'video', maxCount: 1 },
+            { name: 'transcript', maxCount: 1 }
+        ])(req, res, async (err) => {
             if (err) {
                 logs.push('❌ Dosya yükleme hatası: ' + err.message);
                 return res.status(400).json({ success: false, message: 'Dosya yükleme hatası', logs });
             }
 
-            if (!req.file) {
+            if (!req.files || !req.files.video || !req.files.video[0]) {
                 logs.push('❌ Video dosyası bulunamadı');
                 return res.status(400).json({ success: false, message: 'Video dosyası gereklidir', logs });
             }
 
-            logs.push(`📁 Dosya yüklendi: ${req.file.originalname} (${req.file.size} bytes)`);
+            const videoBuffer = req.files.video[0].buffer;
+            const videoTranscript = req.body.transcript;
+
+            if (!videoTranscript) {
+                logs.push('❌ Video transkripti bulunamadı');
+                return res.status(400).json({ success: false, message: 'Video transkripti gereklidir.', logs });
+            }
+
+            logs.push(`📁 Dosya yüklendi: ${req.files.video[0].originalname} (${req.files.video[0].size} bytes)`);
+            logs.push(`📝 Transkript sağlandı: ${videoTranscript.substring(0, 50)}...`);
 
             try {
                 logs.push('Altyazı oluşturma başlıyor...');
-                const subtitlesData = await generateSubtitles(req.file.buffer);
+                const subtitlesData = await generateSubtitles(videoTranscript); // Transkripti gönder
                 logs.push('✅ Yapay zekadan altyazılar başarıyla oluşturuldu.');
                 
                 logs.push('Altyazı yakma işlemi başlıyor...');
-                const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
+                const burnResult = await burnSubtitles(videoBuffer, subtitlesData, {
                     fontSize: 12,
                     marginV: 60,
                     italic: false,
