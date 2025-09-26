@@ -108,8 +108,8 @@ const upload = multer({
     }
 });
 
-// FFmpeg path'ini ayarla (Vercel kendi ffmpeg'i ile geliyor, bu satırı yorum satırı yapıyoruz)
-// ffmpeg.setFfmpegPath(ffmpegPath);
+// FFmpeg path'ini ayarla
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Yardımcı fonksiyonlar
 function formatTime(totalSeconds) {

@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// FFmpeg path'ini ayarla (Vercel kendi ffmpeg'i ile geliyor, bu satırı yorum satırı yapıyoruz)
-// ffmpeg.setFfmpegPath(ffmpegPath);
+// FFmpeg path'ini ayarla
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Google AI konfigürasyonu
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'fallback-key');
