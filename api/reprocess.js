@@ -6,11 +6,98 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// FFmpeg path'ini ayarla
-ffmpeg.setFfmpegPath(ffmpegPath);
+// Google AI için yardımcı bir sınıf veya fonksiyon
+class GeminiHelper {
+    constructor(apiKey) {
+        this.genAI = new GoogleGenerativeAI(apiKey);
+        this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+    }
 
-// Google AI konfigürasyonu
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'fallback-key');
+    async generateSubtitlesFromVideo(videoBuffer, logs) {
+        if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'fallback-key' || process.env.GEMINI_API_KEY === '') {
+            logs.push('⚠️ GEMINI_API_KEY bulunamadı veya geçersiz. Fallback altyazılar oluşturuluyor.');
+            return {
+                subtitles: [
+                    { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI API key eksik. Fallback altyazı.' },
+                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen .env dosyanızı kontrol edin.' }
+                ]
+            };
+        }
+
+        try {
+            logs.push(`🤖 AI'a video analizi için istek gönderiliyor...`);
+            const prompt = `Bu video dosyasından altyazı oluştur. Video içeriğini analiz et ve konuşmacıları ayırt ederek altyazılar oluştur. Sadece JSON formatında döndür, başka hiçbir açıklama veya ön metin ekleme:
+
+{
+    "subtitles": [
+        {"speaker": "Speaker 1", "startTime": 0.0, "endTime": 3.0, "line": "Altyazı metni"},
+        {"speaker": "Speaker 2", "startTime": 3.0, "endTime": 6.0, "line": "Başka altyazı metni"}
+    ]
+}`;
+
+            const imagePart = {
+                inline_data: {
+                    data: videoBuffer.toString('base64'),
+                    mime_type: 'video/mp4'
+                }
+            };
+
+            const parts = [
+                imagePart,
+                { text: prompt }
+            ];
+
+            const result = await this.model.generateContent({ contents: [{ parts }] });
+            const response = await result.response;
+            const text = response.text();
+            logs.push(`✅ AI Ham Yanıtı: ${text.substring(0, 500)}...`);
+            
+            let jsonStr = null;
+            const jsonBlockMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+            if (jsonBlockMatch) {
+                jsonStr = jsonBlockMatch[1];
+            } else {
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    jsonStr = jsonMatch[0];
+                }
+            }
+            
+            if (jsonStr) {
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.subtitles && Array.isArray(parsed.subtitles)) {
+                        logs.push('✅ AI yanıtı başarıyla JSON olarak ayrıştırıldı.');
+                        return parsed;
+                    }
+                } catch (parseError) {
+                    logs.push(`❌ JSON ayrıştırma hatası (iç): ${parseError.message}`);
+                    console.error('JSON ayrıştırma hatası (iç):', parseError.message, 'Gelen Metin:', text);
+                }
+            }
+            
+            logs.push('❌ AI yanıtında geçerli JSON formatı bulunamadı veya altyazı formatı yanlış. Fallback altyazılar oluşturuluyor.');
+            return {
+                subtitles: [
+                    { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI yanıtı anlaşılamadı.' },
+                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen prompt'u veya AI yanıtını kontrol edin.' }
+                ]
+            };
+        } catch (error) {
+            logs.push(`❌ AI altyazı oluşturma hatası (dış): ${error.message}`);
+            console.error('AI altyazı oluşturma hatası (dış):', error.message);
+            logs.push('Hata durumunda fallback altyazılar döndürülüyor.');
+            return {
+                subtitles: [
+                    { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI API hatası: Fallback altyazı' },
+                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen daha sonra tekrar deneyin.' }
+                ]
+            };
+        }
+    }
+}
+
+const geminiHelper = new GeminiHelper(process.env.GEMINI_API_KEY || 'fallback-key');
 
 // Multer konfigürasyonu
 const storage = multer.memoryStorage();
@@ -20,6 +107,9 @@ const upload = multer({
         fileSize: 100 * 1024 * 1024 // 100MB limit
     }
 });
+
+// FFmpeg path'ini ayarla (Vercel kendi ffmpeg'i ile geliyor, bu satırı yorum satırı yapıyoruz)
+// ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Yardımcı fonksiyonlar
 function formatTime(totalSeconds) {
@@ -45,19 +135,14 @@ function hexToDrawtext(hex) {
 
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
-    let assHeader = `[Script Info]
-Title: Generated Subtitles
-ScriptType: v4.00+
-ScaledBorderAndShadow: yes
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-`;
+    let assHeader = `[Script Info]\nTitle: Generated Subtitles\nScriptType: v4.00+\nScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n`;
 
     let stylesSection = '';
     let dialogueSection = '[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n';
 
-    const defaultColors = ['&H0000FFFF&', '&H00FFFFFF&', '&H00FFFF00&', '&H00FF00FF&', '&H0000FF00&'];
+    const defaultColors = ['&H0000FFFF&', '&H00FFFFFF&', '&H00FFFF00&', '&H00FF00FF&', '&H0000FF00&']; // Sarı, Beyaz, Mavi, Pembe, Yeşil
     const usedStyles = new Set();
+    const italicValue = italic ? '1' : '0'; // Italic değeri sabit tutulacak
 
     subtitlesData.subtitles.forEach((sub, index) => {
         let styleName = 'Default';
@@ -69,16 +154,16 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
             usedStyles.add(styleName);
             
             let color = defaultColors[0];
-            if (sub.speaker && speakerColors[sub.speaker]) {
-                color = speakerColors[sub.speaker];
-            } else if (sub.overrideColor) {
+            if (sub.overrideColor) {
                 color = sub.overrideColor;
+            } else if (sub.speaker && speakerColors[sub.speaker]) {
+                const hexColor = speakerColors[sub.speaker].startsWith('#') ? speakerColors[sub.speaker].substring(1) : speakerColors[sub.speaker];
+                color = `&H00${hexColor.substring(4, 6)}${hexColor.substring(2, 4)}${hexColor.substring(0, 2)}&`;
             } else if (sub.speaker) {
                 const speakerIndex = [...new Set(subtitlesData.subtitles.map(s => s.speaker))].indexOf(sub.speaker);
                 color = defaultColors[speakerIndex % defaultColors.length];
             }
             
-            const italicValue = italic ? '1' : '0';
             stylesSection += `Style: ${styleName},${fontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
         }
 
@@ -89,7 +174,6 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
     });
     
     if (stylesSection === '') {
-        const italicValue = italic ? '1' : '0';
         stylesSection += `Style: Default,${fontName},${fontSize},&H00FFFF&,&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
     }
     return assHeader + stylesSection + dialogueSection;

@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// FFmpeg path'ini ayarla
-ffmpeg.setFfmpegPath(ffmpegPath);
+// FFmpeg path'ini ayarla (Vercel kendi ffmpeg'i ile geliyor, bu satırı yorum satırı yapıyoruz)
+// ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Google AI konfigürasyonu
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'fallback-key');
@@ -40,7 +40,7 @@ class GeminiHelper {
         }
 
         try {
-            logs.push('🤖 AI'a video analizi için istek gönderiliyor...');
+            logs.push(`🤖 AI'a video analizi için istek gönderiliyor...`); // Sözdizimi hatası düzeltildi
             const prompt = `Bu video dosyasından altyazı oluştur. Video içeriğini analiz et ve konuşmacıları ayırt ederek altyazılar oluştur. Sadece JSON formatında döndür, başka hiçbir açıklama veya ön metin ekleme:
 
 {
@@ -50,10 +50,10 @@ class GeminiHelper {
     ]
 }`;
 
-            const imagePart = { // Video içeriği artık imagePart olarak değil blob olarak gönderilecek
+            const imagePart = {
                 inline_data: {
                     data: videoBuffer.toString('base64'),
-                    mime_type: 'video/mp4' // Veya videonun gerçek mime type'ı
+                    mime_type: 'video/mp4'
                 }
             };
 
@@ -65,7 +65,7 @@ class GeminiHelper {
             const result = await this.model.generateContent({ contents: [{ parts }] });
             const response = await result.response;
             const text = response.text();
-            logs.push(`✅ AI Ham Yanıtı: ${text.substring(0, 500)}...`); // İlk 500 karakteri logla
+            logs.push(`✅ AI Ham Yanıtı: ${text.substring(0, 500)}...`);
             
             let jsonStr = null;
             const jsonBlockMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
@@ -86,19 +86,21 @@ class GeminiHelper {
                         return parsed;
                     }
                 } catch (parseError) {
-                    logs.push(`❌ JSON ayrıştırma hatası: ${parseError.message}`);
+                    logs.push(`❌ JSON ayrıştırma hatası (iç): ${parseError.message}`);
+                    console.error('JSON ayrıştırma hatası (iç):', parseError.message, 'Gelen Metin:', text);
                 }
             }
             
-            logs.push('❌ AI yanıtında geçerli JSON formatı bulunamadı. Fallback altyazılar oluşturuluyor.');
+            logs.push('❌ AI yanıtında geçerli JSON formatı bulunamadı veya altyazı formatı yanlış. Fallback altyazılar oluşturuluyor.');
             return {
                 subtitles: [
                     { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI yanıtı anlaşılamadı.' },
-                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen prompt'u veya AI yanıtını kontrol edin.' }
+                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen prompt\'u veya AI yanıtını kontrol edin.' }
                 ]
             };
         } catch (error) {
-            logs.push(`❌ AI altyazı oluşturma hatası: ${error.message}`);
+            logs.push(`❌ AI altyazı oluşturma hatası (dış): ${error.message}`);
+            console.error('AI altyazı oluşturma hatası (dış):', error.message);
             logs.push('Hata durumunda fallback altyazılar döndürülüyor.');
             return {
                 subtitles: [
