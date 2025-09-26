@@ -448,15 +448,29 @@
                     }
 
                     this.updateStatus('Başarıyla tamamlandı!', 'success');
-                    this.currentVideoPath = result.originalPath;
-                    // Ensure times are strings and add overrideColor
-                    this.currentSubtitles = result.subtitles.subtitles.map(s => ({
-                        ...s, 
-                        startTime: s.startTime.toFixed(3), 
-                        endTime: s.endTime.toFixed(3),
-                        overrideColor: ''
-                    }));
-                    this.videoPreviewUrl = result.downloadUrl;
+                    
+                    // Vercel API'den gelen veriyi işle
+                    if (result.videoData) {
+                        // Base64 video data'sını blob URL'e çevir
+                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: 'video/mp4' });
+                        this.videoPreviewUrl = URL.createObjectURL(videoBlob);
+                    } else {
+                        this.videoPreviewUrl = result.downloadUrl;
+                    }
+                    
+                    // Altyazıları işle
+                    if (result.subtitles && result.subtitles.subtitles) {
+                        this.currentSubtitles = result.subtitles.subtitles.map(s => ({
+                            ...s, 
+                            startTime: s.startTime.toFixed(3), 
+                            endTime: s.endTime.toFixed(3),
+                            overrideColor: ''
+                        }));
+                    } else {
+                        // Fallback: boş altyazı listesi
+                        this.currentSubtitles = [];
+                    }
+                    
                     this.activeSubtitleIndex = 0;
                     this.populateSpeakerColors();
                     // History init
@@ -520,7 +534,16 @@
                     }
                     
                     this.updateStatus('Değişiklikler başarıyla uygulandı!', 'success');
-                    this.videoPreviewUrl = result.downloadUrl + `?t=${new Date().getTime()}`; // Cache bust
+                    
+                    // Vercel API'den gelen veriyi işle
+                    if (result.videoData) {
+                        // Base64 video data'sını blob URL'e çevir
+                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: 'video/mp4' });
+                        this.videoPreviewUrl = URL.createObjectURL(videoBlob);
+                    } else {
+                        this.videoPreviewUrl = result.downloadUrl + `?t=${new Date().getTime()}`; // Cache bust
+                    }
+                    
                     this.currentScreen = 'preview';
 
                 } catch (error) {
