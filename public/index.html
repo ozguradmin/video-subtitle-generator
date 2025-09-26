@@ -435,7 +435,7 @@
                 formData.append('video', videoInput.files[0]);
 
                 try {
-                    const response = await fetch('/upload', { method: 'POST', body: formData });
+                    const response = await fetch('/api/upload', { method: 'POST', body: formData });
                     const result = await response.json();
                     
                     // Logları anlık olarak güncelle
@@ -507,7 +507,7 @@
                 }
 
                 try {
-                    const response = await fetch('/reprocess', { method: 'POST', body: formData });
+                    const response = await fetch('/api/reprocess', { method: 'POST', body: formData });
                     const result = await response.json();
                     
                     // Logları anlık olarak güncelle
