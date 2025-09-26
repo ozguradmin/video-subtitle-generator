@@ -80,7 +80,7 @@ class GeminiHelper {
             return {
                 subtitles: [
                     { speaker: 'Speaker 1', startTime: 0, endTime: 5, line: 'AI yanıtı anlaşılamadı.' },
-                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen prompt'u veya AI yanıtını kontrol edin.' }
+                    { speaker: 'Speaker 2', startTime: 5, endTime: 10, line: 'Lütfen prompt\'u veya AI yanıtını kontrol edin.' }
                 ]
             };
         } catch (error) {
@@ -144,8 +144,8 @@ function convertToAss(subtitlesData, options = {}) {
     const usedStyles = new Set();
     const italicValue = italic ? '1' : '0'; // Italic değeri sabit tutulacak
     
-    // Vercel'de mevcut olan fontları kullan
-    const safeFontName = 'Arial'; // Vercel'de garantili olan font
+    // Vercel'de mevcut olan fontları kullan - DejaVu Sans daha güvenilir
+    const safeFontName = 'DejaVu Sans'; // Vercel'de garantili olan font
 
     subtitlesData.subtitles.forEach((sub, index) => {
         let styleName = 'Default';
@@ -225,12 +225,11 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             fs.writeFileSync(assPath, assContent);
             logs.push(`✅ Geçici .ass altyazı dosyası /tmp dizinine yazıldı: ${assPath}`);
 
-            // FFmpeg komutunu oluştur - complexFilter kullan
-            const complexFilter = `[0:v]${videoResizingFilter}[resized];[resized]subtitles=filename='${assPath.replace(/\\/g, '/')}'[out]`;
+            // FFmpeg komutunu oluştur - videoFilter kullan (daha basit ve güvenilir)
+            const fullFilter = `${videoResizingFilter},subtitles=filename='${assPath.replace(/\\/g, '/')}'`;
             
             command = ffmpeg(inputPath)
-                .complexFilter(complexFilter)
-                .outputOptions(['-map', '[out]']);
+                .videoFilter(fullFilter);
 
             command
                 .output(outputPath)
