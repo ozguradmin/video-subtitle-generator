@@ -733,24 +733,37 @@
                 }
                 this.wavesurfer = WaveSurfer.create({
                     container: '#waveform',
-                    waveColor: 'violet',
-                    progressColor: 'purple',
+                    waveColor: '#A8B1FF',
+                    progressColor: '#5B21B6',
                     height: 100,
                     responsive: true,
                     plugins: [
-                        WaveSurfer.regions.create({
-                            regions: this.currentSubtitles.map(sub => ({
-                                start: sub.startTime,
-                                end: sub.endTime,
-                                content: sub.line,
-                                color: 'rgba(255, 255, 0, 0.1)',
-                                drag: true,
-                                resize: true,
-                            }))
-                        })
+                        WaveSurfer.regions.create({})
                     ]
                 });
+
                 this.wavesurfer.load(this.videoPreviewUrl);
+
+                this.wavesurfer.on('ready', () => {
+                    this.currentSubtitles.forEach((sub, index) => {
+                        this.wavesurfer.addRegion({
+                            id: index,
+                            start: sub.startTime,
+                            end: sub.endTime,
+                            content: sub.line,
+                            color: 'rgba(255, 255, 0, 0.1)',
+                            drag: true,
+                            resize: true,
+                        });
+                    });
+                });
+
+                this.wavesurfer.on('region-updated', (region) => {
+                    const index = region.id;
+                    this.currentSubtitles[index].startTime = region.start.toFixed(3);
+                    this.currentSubtitles[index].endTime = region.end.toFixed(3);
+                    this.recordHistory();
+                });
             }
         }
     }
