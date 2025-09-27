@@ -523,6 +523,7 @@
                 formData.append('fontSize', this.styleSettings.fontSize);
                 formData.append('marginV', this.styleSettings.marginV);
                 formData.append('italic', this.styleSettings.italic);
+                formData.append('extendDuration', this.styleSettings.extendDuration);
                 formData.append('speakerColors', JSON.stringify(this.styleSettings.speakerColors));
                 
                 // Debug logları
@@ -530,6 +531,7 @@
                 this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}`);
                 this.addLog(`   Dikey Konum: ${this.styleSettings.marginV}`);
                 this.addLog(`   İtalik: ${this.styleSettings.italic}`);
+                this.addLog(`   Uzatma Süresi: ${this.styleSettings.extendDuration}s`);
                 this.addLog(`   Konuşmacı Renkleri: ${JSON.stringify(this.styleSettings.speakerColors)}`);
 
                 const fontInput = document.getElementById('font-upload');

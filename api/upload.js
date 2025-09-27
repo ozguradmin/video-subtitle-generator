@@ -217,8 +217,15 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV}`);
                 
+                // İtalik ayarı için font dosyası seçimi
+                let fontFile = currentFontPath;
+                if (italic) {
+                    // İtalik için ayrı font dosyası gerekebilir, şimdilik normal font kullanıyoruz
+                    logs.push(`⚠️ İtalik ayarı aktif ama FFmpeg drawtext'te desteklenmiyor: ${italic}`);
+                }
+                
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${fontFile}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 

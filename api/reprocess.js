@@ -243,8 +243,15 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV}`);
                 
+                // İtalik ayarı için font dosyası seçimi
+                let fontFile = currentFontPath;
+                if (italic) {
+                    // İtalik için ayrı font dosyası gerekebilir, şimdilik normal font kullanıyoruz
+                    logs.push(`⚠️ İtalik ayarı aktif ama FFmpeg drawtext'te desteklenmiyor: ${italic}`);
+                }
+                
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${fontFile}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -373,7 +380,7 @@ module.exports = async (req, res) => {
             }
 
             // Request body'den parametreleri al
-            const { subtitles, fontSize, marginV, italic, speakerColors } = req.body;
+            const { subtitles, fontSize, marginV, italic, extendDuration, speakerColors } = req.body;
             
             // Video dosyasını kontrol et
             if (!req.files || !req.files.video || !req.files.video[0]) {
@@ -389,6 +396,7 @@ module.exports = async (req, res) => {
             logs.push(`📁 Video dosyası: ${req.files.video[0].originalname} (${req.files.video[0].size} bytes)`);
             logs.push(`📝 Altyazı sayısı: ${subtitles.length}`);
             logs.push(`🎨 Font boyutu: ${fontSize || 16}, Dikey konum: ${marginV || 80}`);
+            logs.push(`⏱️ Uzatma süresi: ${extendDuration || 0.5}s`);
             logs.push(`🎭 Konuşmacı renkleri: ${JSON.stringify(speakerColors || {})}`);
 
             try {
