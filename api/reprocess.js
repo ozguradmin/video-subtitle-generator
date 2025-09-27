@@ -52,35 +52,16 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Hex renk formatını FFmpeg drawtext formatına çeviren fonksiyon
-function hexToDrawtext(hexColor) {
-    if (!hexColor) return 'white';
-    
-    // Özel renk isimlerini hex'e çevir
-    const colorMap = {
-        'white': 'FFFFFF',
-        'black': '000000',
-        'yellow': 'FFFF00',
-        'red': 'FF0000',
-        'green': '00FF00',
-        'blue': '0000FF',
-        'cyan': '00FFFF',
-        'magenta': 'FF00FF'
-    };
-    
-    let hex = hexColor.replace('#', '').toUpperCase();
-    
-    // Renk ismi varsa hex'e çevir
-    if (colorMap[hexColor.toLowerCase()]) {
-        hex = colorMap[hexColor.toLowerCase()];
+function hexToDrawtext(hex) {
+    if (typeof hex !== 'string') return 'white';
+    // FFmpeg'in anladığı renk isimlerini doğrudan döndür
+    const ffmpegColorNames = ['white', 'black', 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan'];
+    if (ffmpegColorNames.includes(hex.toLowerCase())) {
+        return hex;
     }
-    
-    // Kısa formatı uzun formata çevir (#FFF -> #FFFFFF)
-    if (hex.length === 3) {
-        hex = hex.split('').map(char => char + char).join('');
-    }
-    
-    // FFmpeg drawtext formatına çevir (0xRRGGBB)
-    return `0x${hex}`;
+    // Hex kodunu temizle ve '0x' ile başlat
+    const cleanedHex = hex.replace('#', '');
+    return `0x${cleanedHex}`;
 }
 
 // FFmpeg için metin escape etme fonksiyonu
@@ -101,30 +82,30 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     return new Promise(async (resolve, reject) => {
         const logs = [];
         try {
-            const { 
-                fontFile = null, 
+    const { 
+        fontFile = null, 
                 fontSize = 50, 
                 marginV = 300, 
-                italic = false, 
-                speakerColors = {},
-                fontFamily = 'Roboto',
-                maxWidth = 80,
-                marginH = 20,
-                lineSpacing = 5,
-                textAlign = 'center',
-                shadow = true,
-                outline = true,
-                outlineWidth = 2,
-                shadowOffset = 2,
-                backgroundColor = 'black',
+        italic = false, 
+        speakerColors = {},
+        fontFamily = 'Roboto',
+        maxWidth = 80,
+        marginH = 20,
+        lineSpacing = 5,
+        textAlign = 'center',
+        shadow = true,
+        outline = true,
+        outlineWidth = 2,
+        shadowOffset = 2,
+        backgroundColor = 'black',
                 backgroundOpacity = 0.5,
                 animationStyle = 'none' // Animasyon stili eklendi
-            } = options;
+    } = options;
 
-            const tempDir = os.tmpdir();
-            const uniqueId = uuidv4();
-            const outputFilename = `subtitled_video_${Date.now()}.mp4`;
-            const outputPath = path.join(tempDir, outputFilename);
+    const tempDir = os.tmpdir();
+    const uniqueId = uuidv4();
+    const outputFilename = `subtitled_video_${Date.now()}.mp4`;
+    const outputPath = path.join(tempDir, outputFilename);
 
             // Font dosyasını kontrol et
             const fontPath = fontPaths[fontFamily];
@@ -151,52 +132,52 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 
                 subtitlesData.subtitles.forEach((sub, index) => {
                     const text = escapeTextForFfmpeg(sub.line);
-                    
-                    // Renk belirleme: overrideColor > speakerColors > varsayılan
-                    let color = 'white';
-                    if (sub.overrideColor) {
-                        color = sub.overrideColor;
-                    } else if (speakerColors[sub.speaker]) {
-                        color = speakerColors[sub.speaker];
-                    } else {
-                        // Varsayılan renk paleti
-                        const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
-                        const speakerIndex = parseInt(sub.speaker.replace(/\D/g, '')) - 1;
-                        color = defaultColors[speakerIndex] || 'yellow';
-                    }
-                    
-                    // Hex renk formatını FFmpeg formatına çevir
-                    const ffmpegColor = hexToDrawtext(color);
-                    
-                    // Hizalama pozisyonu hesapla
-                    let xPosition;
-                    if (textAlign === 'left') {
-                        xPosition = marginH;
-                    } else if (textAlign === 'right') {
-                        xPosition = `w-${marginH}-text_w`;
-                    } else { // center
-                        xPosition = `(w-text_w)/2`;
-                    }
-                    
-                    // Arka plan rengi ve şeffaflığı
-                    const bgColor = hexToDrawtext(backgroundColor);
-                    const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
-                    const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
-                    
-                    // Gölge ve kontur efektleri
-                    let effects = '';
-                    if (shadow) {
-                        effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
-                    }
-                    if (outline) {
-                        effects += `:borderw=${outlineWidth}:bordercolor=black`;
-                    }
-                    
-                    // Metin sarmalama için genişlik hesapla
-                    const textWidth = `w*${maxWidth}/100-${marginH*2}`;
-                    
-                    logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
-                    
+                
+                // Renk belirleme: overrideColor > speakerColors > varsayılan
+                let color = 'white';
+                if (sub.overrideColor) {
+                    color = sub.overrideColor;
+                } else if (speakerColors[sub.speaker]) {
+                    color = speakerColors[sub.speaker];
+                } else {
+                    // Varsayılan renk paleti
+                    const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
+                    const speakerIndex = parseInt(sub.speaker.replace(/\D/g, '')) - 1;
+                    color = defaultColors[speakerIndex] || 'yellow';
+                }
+                
+                // Hex renk formatını FFmpeg formatına çevir
+                const ffmpegColor = hexToDrawtext(color);
+                
+                // Hizalama pozisyonu hesapla
+                let xPosition;
+                if (textAlign === 'left') {
+                    xPosition = marginH;
+                } else if (textAlign === 'right') {
+                    xPosition = `w-${marginH}-text_w`;
+                } else { // center
+                    xPosition = `(w-text_w)/2`;
+                }
+                
+                // Arka plan rengi ve şeffaflığı
+                const bgColor = hexToDrawtext(backgroundColor);
+                const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
+                const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
+                
+                // Gölge ve kontur efektleri
+                let effects = '';
+                if (shadow) {
+                    effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
+                }
+                if (outline) {
+                    effects += `:borderw=${outlineWidth}:bordercolor=black`;
+                }
+                
+                // Metin sarmalama için genişlik hesapla
+                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
+                
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
+                
                     let drawtextFilter = `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}`;
 
                     if (animationStyle === 'fadeIn') {
@@ -310,7 +291,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                     
                     reject({ error: err, logs });
                 });
-
+            
             command.run();
 
         } catch (error) {

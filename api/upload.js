@@ -72,35 +72,16 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Hex renk formatını FFmpeg drawtext formatına çeviren fonksiyon
-function hexToDrawtext(hexColor) {
-    if (!hexColor) return 'white';
-    
-    // Özel renk isimlerini hex'e çevir
-    const colorMap = {
-        'white': 'FFFFFF',
-        'black': '000000',
-        'yellow': 'FFFF00',
-        'red': 'FF0000',
-        'green': '00FF00',
-        'blue': '0000FF',
-        'cyan': '00FFFF',
-        'magenta': 'FF00FF'
-    };
-    
-    let hex = hexColor.replace('#', '').toUpperCase();
-    
-    // Renk ismi varsa hex'e çevir
-    if (colorMap[hexColor.toLowerCase()]) {
-        hex = colorMap[hexColor.toLowerCase()];
+function hexToDrawtext(hex) {
+    if (typeof hex !== 'string') return 'white';
+    // FFmpeg'in anladığı renk isimlerini doğrudan döndür
+    const ffmpegColorNames = ['white', 'black', 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan'];
+    if (ffmpegColorNames.includes(hex.toLowerCase())) {
+        return hex;
     }
-    
-    // Kısa formatı uzun formata çevir (#FFF -> #FFFFFF)
-    if (hex.length === 3) {
-        hex = hex.split('').map(char => char + char).join('');
-    }
-    
-    // FFmpeg drawtext formatına çevir (0xRRGGBB)
-    return `0x${hex}`;
+    // Hex kodunu temizle ve '0x' ile başlat
+    const cleanedHex = hex.replace('#', '');
+    return `0x${cleanedHex}`;
 }
 
 // FFmpeg için metin escape etme fonksiyonu
@@ -121,20 +102,20 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
     return new Promise(async (resolve, reject) => {
         const logs = [];
         try {
-            const { 
+    const { 
                 fontSize = 50, 
                 marginV = 300, 
-                italic = false, 
-                fontFamily = 'Roboto',
-                maxWidth = 80,
-                marginH = 20,
-                lineSpacing = 5,
-                textAlign = 'center',
-                shadow = true,
-                outline = true,
-                outlineWidth = 2,
-                shadowOffset = 2,
-                backgroundColor = 'black',
+        italic = false, 
+        fontFamily = 'Roboto',
+        maxWidth = 80,
+        marginH = 20,
+        lineSpacing = 5,
+        textAlign = 'center',
+        shadow = true,
+        outline = true,
+        outlineWidth = 2,
+        shadowOffset = 2,
+        backgroundColor = 'black',
                 backgroundOpacity = 0.5,
                 animationStyle = 'none' // Animasyon stili eklendi
             } = selectedStyle;
@@ -147,7 +128,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
             subtitles.forEach((sub, index) => {
                 const speaker = sub.speaker || 'Konuşmacı 1';
                 const color = speakerColors[speaker] || 'yellow'; // Varsayılan sarı
-                const fontColor = `0x${color.replace('#', '')}`;
+                const fontColor = hexToDrawtext(color);
                 
                 const escapedLine = escapeTextForFfmpeg(sub.line);
                 let drawtextFilter = `drawtext=text='${escapedLine}':fontfile='${fontFile}':fontsize=${fontSize}:fontcolor=${fontColor}:x=(w-text_w)/2:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${backgroundColor}@${backgroundOpacity}:boxborderw=5`;
