@@ -192,10 +192,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
-        fontSize = 16, 
-        marginV = 80, 
+        fontSize = 72, 
+        marginV = 350, 
         italic = false, 
         speakerColors = {},
+        fontFamily = 'Roboto',
         maxWidth = 80,
         marginH = 20,
         lineSpacing = 5,
@@ -222,10 +223,31 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         let currentFontPath = null;
 
         try {
-            // Base64 fontu çözüp /tmp dizinine yaz
-            currentFontPath = path.join(tempDir, `font_${uniqueId}.ttf`);
-            fs.writeFileSync(currentFontPath, Buffer.from(robotoFontBase64, 'base64'));
-            logs.push(`✅ Gömülü font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
+            // Font seçimine göre font dosyasını oluştur
+            let fontBase64;
+            let fontExtension;
+            
+            if (fontFamily === 'Avenir') {
+                // Avenir fontunu base64'ten oku
+                const avenirPath = path.join(__dirname, '..', 'Avenir LT Std Medium TR Bold Italic TR.otf');
+                if (fs.existsSync(avenirPath)) {
+                    fontBase64 = fs.readFileSync(avenirPath).toString('base64');
+                    fontExtension = 'otf';
+                } else {
+                    // Fallback olarak Roboto kullan
+                    fontBase64 = robotoFontBase64;
+                    fontExtension = 'ttf';
+                    logs.push('⚠️ Avenir fontu bulunamadı, Roboto kullanılıyor');
+                }
+            } else {
+                // Roboto fontu
+                fontBase64 = robotoFontBase64;
+                fontExtension = 'ttf';
+            }
+            
+            currentFontPath = path.join(tempDir, `font_${uniqueId}.${fontExtension}`);
+            fs.writeFileSync(currentFontPath, Buffer.from(fontBase64, 'base64'));
+            logs.push(`✅ ${fontFamily} font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
             
             logs.push('🔵 MODE: drawtext (gömülü font ile)');
             logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
@@ -420,6 +442,7 @@ module.exports = async (req, res) => {
                 marginV, 
                 italic, 
                 speakerColors,
+                fontFamily,
                 maxWidth,
                 marginH,
                 lineSpacing,
@@ -464,10 +487,11 @@ module.exports = async (req, res) => {
 
                 const burnResult = await burnSubtitles(videoBuffer, subtitlesData, {
                     fontFile: req.files.font ? req.files.font[0] : null,
-                    fontSize: parseInt(fontSize) || 16,
-                    marginV: parseInt(marginV) || 80,
+                    fontSize: parseInt(fontSize) || 72,
+                    marginV: parseInt(marginV) || 350,
                     italic: italic === 'true' || italic === true,
                     speakerColors: speakerColorsData,
+                    fontFamily: fontFamily || 'Roboto',
                     maxWidth: parseInt(maxWidth) || 80,
                     marginH: parseInt(marginH) || 20,
                     lineSpacing: parseInt(lineSpacing) || 5,
