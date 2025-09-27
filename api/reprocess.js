@@ -308,9 +308,9 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
         
         console.log('✅ Video yeniden işleme tamamlandı');
         console.log(`📊 İşlem logları: ${result.logs.length} adet`);
-
-        res.json({
-            success: true,
+                
+                res.json({ 
+                    success: true, 
             message: 'Video başarıyla yeniden işlendi',
             filename: result.filename,
             logs: result.logs,
@@ -321,8 +321,8 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
         console.error('❌ Reprocess hatası:', error.message);
         console.error(`[${new Date().toISOString()}] [error] Reprocess hatası:`, error);
         
-        res.status(500).json({
-            success: false,
+        res.status(500).json({ 
+            success: false, 
             error: error.message || 'Video yeniden işlenirken hata oluştu',
             logs: error.logs || []
         });

@@ -5,9 +5,37 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Gemini AI Yapılandırması
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+async function generateSubtitles(videoPath) {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = "Bu videodaki konuşmaları analiz et ve altyazıları JSON formatında, her bir altyazı için başlangıç ve bitiş zamanları (saniye cinsinden) ile birlikte oluştur. Sadece JSON çıktısı ver, başka hiçbir metin ekleme. Format şu şekilde olmalı: { \"subtitles\": [ { \"speaker\": \"Konuşmacı 1\", \"startTime\": 0.0, \"endTime\": 2.5, \"line\": \"Metin...\" } ] }";
+    
+    const videoBytes = fs.readFileSync(videoPath);
+    const videoBuffer = Buffer.from(videoBytes).toString("base64");
+
+    const file = {
+        inlineData: {
+            data: videoBuffer,
+            mimeType: "video/mp4",
+        },
+    };
+
+    const result = await model.generateContent([prompt, file]);
+    const response = await result.response;
+    const text = await response.text();
+    
+    // Temizleme ve JSON'a dönüştürme
+    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanedText).subtitles;
+}
 
 // Font dosya yolları
 const fontPaths = {
@@ -300,21 +328,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         // AI'dan altyazı oluşturma simülasyonu
         console.log('🤖 AI\'a video analizi için istek gönderiliyor...');
         
-        // Simüle edilmiş AI yanıtı
-        const mockSubtitles = [
-            {
-                speaker: "Konuşmacı 1",
-                startTime: 0.0,
-                endTime: 2.5,
-                line: "Merhaba, bu bir test videosudur."
-            },
-            {
-                speaker: "Konuşmacı 1", 
-                startTime: 3.0,
-                endTime: 6.0,
-                line: "Altyazı yakma işlemi test ediliyor."
-            }
-        ];
+        // Gerçek AI Altyazı Oluşturma
+        const subtitles = await generateSubtitles(inputPath);
 
         console.log('✅ AI yanıtı başarıyla JSON olarak ayrıştırıldı.');
         console.log('✅ Yapay zekadan altyazılar başarıyla oluşturuldu.');
@@ -342,7 +357,7 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         console.log('Altyazı yakma işlemi başlıyor...');
 
         // Altyazı yakma işlemini başlat
-        const result = await burnSubtitles(inputPath, mockSubtitles, selectedStyle, speakerColors);
+        const result = await burnSubtitles(inputPath, subtitles, selectedStyle, speakerColors);
         
         console.log('✅ Altyazı yakma işlemi tamamlandı');
         console.log(`📊 İşlem logları: ${result.logs.length} adet`);
