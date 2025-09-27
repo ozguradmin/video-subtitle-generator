@@ -14,27 +14,12 @@ const PORT = process.env.PORT || 3000;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateSubtitles(videoPath) {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
-
-    const prompt = "Bu videodaki konuşmaları analiz et ve altyazıları Türkçe'ye çevirerek JSON formatında oluştur. Her bir altyazı için başlangıç ve bitiş zamanları (saniye cinsinden) ile birlikte olmalı. Sadece JSON çıktısı ver, başka hiçbir metin ekleme. Format şu şekilde olmalı: { \"subtitles\": [ { \"speaker\": \"Konuşmacı 1\", \"startTime\": 0.0, \"endTime\": 2.5, \"line\": \"Türkçe metin...\" } ] }";
-    
-    const videoBytes = fs.readFileSync(videoPath);
-    const videoBuffer = Buffer.from(videoBytes).toString("base64");
-
-    const file = {
-        inlineData: {
-            data: videoBuffer,
-            mimeType: "video/mp4",
-        },
-    };
-
-    const result = await model.generateContent([prompt, file]);
-    const response = await result.response;
-    const text = await response.text();
-    
-    // Temizleme ve JSON'a dönüştürme
-    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanedText).subtitles;
+    // Test için mock altyazılar döndür
+    console.log('🤖 Mock altyazılar oluşturuluyor...');
+    return [
+        { speaker: "Test Konuşmacı", startTime: 0.0, endTime: 2.5, line: "Merhaba, bu bir test videosudur." },
+        { speaker: "Test Konuşmacı", startTime: 3.0, endTime: 6.0, line: "Altyazı yakma işlemi test ediliyor." }
+    ];
 }
 
 // Font dosya yolları
@@ -48,7 +33,15 @@ const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Multer konfigürasyonu
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, os.tmpdir())
+    },
+    filename: function (req, file, cb) {
+        const uniqueId = uuidv4();
+        cb(null, `input_${uniqueId}.mp4`)
+    }
+});
 const upload = multer({
     storage: storage,
     limits: {
@@ -326,9 +319,7 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         return res.status(400).json({ error: 'Video dosyası bulunamadı.' });
     }
 
-    const videoBuffer = req.file.buffer;
-    const videoPath = path.join(os.tmpdir(), `uploaded_video_${Date.now()}.mp4`);
-    fs.writeFileSync(videoPath, videoBuffer);
+    const videoPath = req.file.path;
 
     try {
         const subtitles = await generateSubtitles(videoPath);
