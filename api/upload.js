@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Font dosya yolları
 const fontPaths = {
     'Roboto': path.join(__dirname, '..', 'public', 'fonts', 'Roboto-Regular.ttf'),
-    'Avenir': path.join(__dirname, '..', 'public', 'fonts', 'Avenir LT Std Medium TR Bold Italic TR.otf')
+    'Avenir': path.join(__dirname, '..', 'public', 'fonts', 'Avenir.otf')
 };
 
 // FFmpeg path'ini ayarla
@@ -21,7 +21,7 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Multer konfigürasyonu
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     limits: {
         fileSize: 100 * 1024 * 1024 // 100MB limit
@@ -36,7 +36,7 @@ app.use((req, res, next) => {
     
     if (req.method === 'OPTIONS') {
         res.sendStatus(200);
-    } else {
+            } else {
         next();
     }
 });
@@ -321,20 +321,20 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
         // Stil ayarları
         const selectedStyle = {
-            fontSize: 28,
-            marginV: 120,
-            italic: false,
-            fontFamily: 'Roboto',
-            maxWidth: 80,
-            marginH: 20,
-            lineSpacing: 5,
-            textAlign: 'center',
-            shadow: true,
-            outline: true,
-            outlineWidth: 2,
-            shadowOffset: 2,
-            backgroundColor: 'black',
-            backgroundOpacity: 0.5
+                    fontSize: 28,
+                    marginV: 120,
+                    italic: false,
+                    fontFamily: 'Roboto',
+                    maxWidth: 80,
+                    marginH: 20,
+                    lineSpacing: 5,
+                    textAlign: 'center',
+                    shadow: true,
+                    outline: true,
+                    outlineWidth: 2,
+                    shadowOffset: 2,
+                    backgroundColor: 'black',
+                    backgroundOpacity: 0.5
         };
 
         const speakerColors = {};
@@ -348,8 +348,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         console.log(`📊 İşlem logları: ${result.logs.length} adet`);
 
         // Başarılı yanıt
-        res.json({
-            success: true,
+                res.json({ 
+                    success: true, 
             message: 'Video başarıyla işlendi',
             filename: result.filename,
             logs: result.logs,
@@ -361,8 +361,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         console.error('[17:38:56] ❌ Hata: Video işlenirken hata oluştu');
         console.error(`[${new Date().toISOString()}] [error] İşleme hatası:`, error);
         
-        res.status(500).json({
-            success: false,
+        res.status(500).json({ 
+            success: false, 
             error: error.message || 'Video işlenirken hata oluştu',
             logs: error.logs || []
         });

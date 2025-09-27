@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Font dosya yolları
 const fontPaths = {
     'Roboto': path.join(__dirname, '..', 'public', 'fonts', 'Roboto-Regular.ttf'),
-    'Avenir': path.join(__dirname, '..', 'public', 'fonts', 'Avenir LT Std Medium TR Bold Italic TR.otf')
+    'Avenir': path.join(__dirname, '..', 'public', 'fonts', 'Avenir.otf')
 };
 
 // FFmpeg path'ini ayarla
