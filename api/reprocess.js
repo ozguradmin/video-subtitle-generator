@@ -52,16 +52,35 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Hex renk formatını FFmpeg drawtext formatına çeviren fonksiyon
-function hexToDrawtext(hex) {
-    if (typeof hex !== 'string') return 'white';
-    // FFmpeg'in anladığı renk isimlerini doğrudan döndür
-    const ffmpegColorNames = ['white', 'black', 'red', 'green', 'blue', 'yellow', 'magenta', 'cyan'];
-    if (ffmpegColorNames.includes(hex.toLowerCase())) {
-        return hex;
+function hexToDrawtext(hexColor) {
+    if (!hexColor) return 'white';
+    
+    // Özel renk isimlerini hex'e çevir
+    const colorMap = {
+        'white': 'FFFFFF',
+        'black': '000000',
+        'yellow': 'FFFF00',
+        'red': 'FF0000',
+        'green': '00FF00',
+        'blue': '0000FF',
+        'cyan': '00FFFF',
+        'magenta': 'FF00FF'
+    };
+    
+    let hex = hexColor.replace('#', '').toUpperCase();
+    
+    // Renk ismi varsa hex'e çevir
+    if (colorMap[hexColor.toLowerCase()]) {
+        hex = colorMap[hexColor.toLowerCase()];
     }
-    // Hex kodunu temizle ve '0x' ile başlat
-    const cleanedHex = hex.replace('#', '');
-    return `0x${cleanedHex}`;
+    
+    // Kısa formatı uzun formata çevir (#FFF -> #FFFFFF)
+    if (hex.length === 3) {
+        hex = hex.split('').map(char => char + char).join('');
+    }
+    
+    // FFmpeg drawtext formatına çevir (0xRRGGBB)
+    return `0x${hex}`;
 }
 
 // FFmpeg için metin escape etme fonksiyonu
@@ -77,15 +96,48 @@ function escapeTextForFfmpeg(text) {
         .replace(/%/g, '\\\\%'); // Yüzde işaretini escape et
 }
 
+// Metni belirli bir karakter sayısına göre saran fonksiyon
+function wrapText(text, maxCharsPerLine = 35) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    const words = text.split(' ');
+    let lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        // Kelimenin kendisi satırdan uzunsa, onu bile böl
+        if (word.length > maxCharsPerLine) {
+            if (currentLine.length > 0) {
+                lines.push(currentLine);
+            }
+            let wordPart = word;
+            while (wordPart.length > maxCharsPerLine) {
+                lines.push(wordPart.substring(0, maxCharsPerLine));
+                wordPart = wordPart.substring(maxCharsPerLine);
+            }
+            currentLine = wordPart;
+        } else if ((currentLine + ' ' + word).trim().length > maxCharsPerLine && currentLine.length > 0) {
+            lines.push(currentLine);
+            currentLine = word;
+        } else {
+            if (currentLine.length === 0) {
+                currentLine = word;
+            } else {
+                currentLine += ' ' + word;
+            }
+        }
+    });
+    lines.push(currentLine);
+    return lines.join('\\n'); // FFmpeg için newline karakteri
+}
+
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitlesData, options = {}) {
-    return new Promise(async (resolve, reject) => {
-        const logs = [];
-        try {
     const { 
         fontFile = null, 
-                fontSize = 50, 
-                marginV = 300, 
+        fontSize = 50, 
+        marginV = 300, 
         italic = false, 
         speakerColors = {},
         fontFamily = 'Roboto',
@@ -98,15 +150,23 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         outlineWidth = 2,
         shadowOffset = 2,
         backgroundColor = 'black',
-                backgroundOpacity = 0.5,
-                animationStyle = 'none' // Animasyon stili eklendi
+        backgroundOpacity = 0.5
     } = options;
-
+    
+    const logs = [];
     const tempDir = os.tmpdir();
     const uniqueId = uuidv4();
     const outputFilename = `subtitled_video_${Date.now()}.mp4`;
     const outputPath = path.join(tempDir, outputFilename);
 
+    // Gelen videoPath'i doğrudan kullan, buffer'dan yazma
+    // fs.writeFileSync(inputPath, videoBuffer); 
+
+    return new Promise((resolve, reject) => {
+        let command;
+        let assPath = null; // drawtext kullandığımız için artık assPath'e gerek yok
+
+        try {
             // Font dosyasını kontrol et
             const fontPath = fontPaths[fontFamily];
             if (!fontPath || !fs.existsSync(fontPath)) {
@@ -130,8 +190,11 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             } else {
                 logs.push(`📝 ${subtitlesData.subtitles.length} adet altyazı işleniyor...`);
                 
-                subtitlesData.subtitles.forEach((sub, index) => {
-                    const text = escapeTextForFfmpeg(sub.line);
+            subtitlesData.subtitles.forEach((sub, index) => {
+                // Font boyutuna göre satır başına karakter sayısını dinamik olarak ayarla
+                const maxChars = Math.floor((50 / fontSize) * 35);
+                const wrappedText = wrapText(sub.line, maxChars);
+                const text = escapeTextForFfmpeg(wrappedText);
                 
                 // Renk belirleme: overrideColor > speakerColors > varsayılan
                 let color = 'white';
@@ -178,17 +241,10 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
-                    let drawtextFilter = `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}`;
-
-                    if (animationStyle === 'fadeIn') {
-                        const fadeInDuration = 0.5; // saniye
-                        drawtextFilter += `:alpha='if(lt(t,${sub.startTime}),0,if(lt(t,${sub.startTime}+${fadeInDuration}),(t-${sub.startTime})/${fadeInDuration},if(lt(t,${sub.endTime}),1,0)))'`;
-                    } else {
-                        drawtextFilter += `:enable='between(t,${sub.startTime},${sub.endTime})'`;
-                    }
-
-                    drawtextFilters.push(drawtextFilter);
-                });
+                drawtextFilters.push(
+                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                );
+            });
             }
 
             // Eğer altyazı yoksa sadece video resize yap
@@ -202,8 +258,10 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
-            const command = ffmpeg(videoPath)
-                .videoFilter(fullFilter)
+            command = ffmpeg(videoPath) // videoPath'i kullan
+                .videoFilter(fullFilter);
+
+            command
                 .output(outputPath)
                 .outputOptions([
                     '-c:v', 'libx264',

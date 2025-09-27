@@ -33,27 +33,10 @@
         }
         [x-cloak] { display: none !important; }
         .accent-primary { accent-color: #137fec; }
-        .timeline-container {
-            position: relative;
-            width: 100%;
-            height: 100px; /* Waveform height */
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-top: 20px;
-        }
-        #waveform {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
     </style>
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200"
-      x-data="videoEditor()"
-      x-init="init()">
+      x-data="videoEditor()">
 
     <!-- Ana Konteyner -->
     <div class="flex min-h-screen flex-col">
@@ -151,76 +134,85 @@
         </div>
 
         <!-- 3. Altyazı Düzenleyici Ekranı -->
-        <div x-show="currentScreen === 'subtitle_editor'" x-transition.opacity.duration.200ms  class="flex flex-col h-screen">
+        <div x-show="currentScreen === 'editor'" x-transition.opacity.duration.200ms class="flex flex-col h-screen">
             <header class="flex items-center justify-between border-b border-gray-200/10 p-4 backdrop-blur-sm">
                 <button @click="currentScreen = 'preview'" class="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20"><span class="material-symbols-outlined">arrow_back</span></button>
                 <h1 class="text-lg font-bold">Altyazı Düzenleyici</h1>
-                 <div class="flex items-center gap-2">
-                    <button @click="undo" :disabled="history.length === 0" class="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20 disabled:opacity-50"><span class="material-symbols-outlined">undo</span></button>
-                    <button @click="redo" :disabled="future.length === 0" class="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20 disabled:opacity-50"><span class="material-symbols-outlined">redo</span></button>
+                <div class="flex items-center gap-2">
+                    <button @click="undo()" :disabled="historyIndex <= 0" class="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20 disabled:opacity-50">
+                        <span class="material-symbols-outlined">undo</span>
+                    </button>
+                    <button @click="redo()" :disabled="historyIndex >= history.length - 1" class="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20 disabled:opacity-50">
+                        <span class="material-symbols-outlined">redo</span>
+                    </button>
                 </div>
             </header>
-
-            <main class="flex-1 overflow-y-auto p-6 space-y-6">
-                <div x-show="currentSubtitles.length === 0" class="text-center py-8">
-                    <div class="text-gray-500 dark:text-gray-400">
-                        <span class="material-symbols-outlined text-4xl mb-2 block">subtitles_off</span>
-                        <p>Henüz altyazı yüklenmedi. Lütfen önce bir video yükleyin.</p>
-                    </div>
-                </div>
-                
-                <!-- Altyazı editörü -->
-                <div x-show="currentSubtitles.length > 0" class="rounded-lg border border-primary/50 bg-background-light/50 p-4 shadow-lg ring-1 ring-primary/20 dark:bg-background-dark/50"
-                     @input="recordHistory()">
-                    <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0">
-                            <input type="text" x-model="currentSubtitles[activeSubtitleIndex].speaker" class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm w-28">
+            <main class="flex-1 overflow-y-auto p-4">
+                <div class="space-y-6">
+                    <!-- Altyazı yoksa mesaj göster -->
+                    <div x-show="currentSubtitles.length === 0" class="text-center py-8">
+                        <div class="text-gray-500 dark:text-gray-400">
+                            <span class="material-symbols-outlined text-4xl mb-2 block">subtitles_off</span>
+                            <p>Henüz altyazı yüklenmedi. Lütfen önce bir video yükleyin.</p>
                         </div>
-                        <div class="flex-grow">
-                            <textarea x-model="currentSubtitles[activeSubtitleIndex].line" rows="3" class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-base"></textarea>
-                            <div class="mt-2 flex items-center gap-4">
-                                <div class="flex items-center gap-2">
-                                    <label class="text-sm">Başlangıç:</label>
-                                    <input type="number" step="0.01" x-model.number="currentSubtitles[activeSubtitleIndex].startTime" class="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm">
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <label class="text-sm">Bitiş:</label>
-                                    <input type="number" step="0.01" x-model.number="currentSubtitles[activeSubtitleIndex].endTime" class="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm">
+                    </div>
+                    
+                    <!-- Altyazı editörü -->
+                    <div x-show="currentSubtitles.length > 0" class="rounded-lg border border-primary/50 bg-background-light/50 p-4 shadow-lg ring-1 ring-primary/20 dark:bg-background-dark/50"
+                         @input="recordHistory()">
+                        <div class="mb-3 flex items-center justify-between">
+                             <div class="flex items-center gap-3">
+                                <input type="text" x-model="currentSubtitles[activeSubtitleIndex].speaker" class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 border-0 focus:ring-2 focus:ring-primary">
+                                <div class="flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 pl-3">
+                                    <input type="color" 
+                                           :value="getCurrentSubtitleColor()"
+                                           @input.debounce.150ms="currentSubtitles[activeSubtitleIndex].overrideColor = $event.target.value; recordHistory()"
+                                           class="w-6 h-6 p-0 border-0 rounded-full cursor-pointer appearance-none bg-transparent">
+                                    <input type="text" 
+                                           :value="getCurrentSubtitleColor()"
+                                           @input.debounce.300ms="currentSubtitles[activeSubtitleIndex].overrideColor = $event.target.value; recordHistory()"
+                                           class="w-20 bg-transparent text-xs font-mono focus:ring-0 border-0">
                                 </div>
                             </div>
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400" x-text="(activeSubtitleIndex + 1) + ' / ' + currentSubtitles.length"></span>
                         </div>
-                        
-                    </div>
-                    <div class="mt-4 flex justify-end">
-                        <button @click="removeSubtitle(activeSubtitleIndex)" class="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30">
-                            <span class="material-symbols-outlined text-base">delete</span>
-                            <span>Bu Altyazıyı Sil</span>
-                        </button>
-                    </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Başlangıç</label>
+                                <input type="text" x-model="currentSubtitles[activeSubtitleIndex].startTime" class="mt-1 block w-full rounded border-gray-200/20 bg-background-light/30 p-2 text-sm text-gray-900 focus:border-primary focus:ring-primary dark:bg-background-dark/30 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Bitiş</label>
+                                <input type="text" x-model="currentSubtitles[activeSubtitleIndex].endTime" class="mt-1 block w-full rounded border-gray-200/20 bg-background-light/30 p-2 text-sm text-gray-900 focus:border-primary focus:ring-primary dark:bg-background-dark/30 dark:text-white">
+                            </div>
                 </div>
-
-                <div class="flex items-center justify-between">
-                    <button @click="prevSubtitle()" :disabled="activeSubtitleIndex === 0" class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 disabled:opacity-50"><span class="material-symbols-outlined">chevron_left</span></button>
-                    
-                    <button @click="addNewSubtitle()" class="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20 text-green-500 hover:bg-green-500/30">
-                        <span class="material-symbols-outlined">add</span>
-                    </button>
-        
-                    <div class="flex items-center gap-2">
-                         <template x-for="(sub, index) in currentSubtitles.slice(Math.max(0, activeSubtitleIndex-2), Math.min(currentSubtitles.length, activeSubtitleIndex+3))">
-                            <button @click="activeSubtitleIndex = currentSubtitles.indexOf(sub)" class="h-2.5 w-2.5 rounded-full" :class="currentSubtitles.indexOf(sub) === activeSubtitleIndex ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"></button>
-                        </template>
-                    </div>
-                    <button @click="nextSubtitle()" :disabled="activeSubtitleIndex === currentSubtitles.length - 1" class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 disabled:opacity-50"><span class="material-symbols-outlined">chevron_right</span></button>
-                </div>
-            </main>
-             <!-- Timeline -->
-             <div class="border-t border-gray-200/10 bg-background-light/80 p-4 backdrop-blur-sm dark:bg-background-dark/80">
-                <div id="timeline-container" class="relative">
-                    <div id="waveform"></div>
-                </div>
+                        <div class="mt-3">
+                            <textarea x-model="currentSubtitles[activeSubtitleIndex].line" class="min-h-[100px] w-full rounded border-gray-200/20 bg-background-light/30 p-2 text-sm text-gray-900 focus:border-primary focus:ring-primary dark:bg-background-dark/30 dark:text-white" rows="4"></textarea>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button @click="removeSubtitle(activeSubtitleIndex)" class="flex items-center gap-2 rounded-md bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30">
+                    <span class="material-symbols-outlined text-base">delete</span>
+                    <span>Bu Altyazıyı Sil</span>
+                </button>
             </div>
         </div>
+                    <div class="flex items-center justify-between">
+                        <button @click="prevSubtitle()" :disabled="activeSubtitleIndex === 0" class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 disabled:opacity-50"><span class="material-symbols-outlined">chevron_left</span></button>
+                        <div class="flex items-center gap-2">
+                             <template x-for="(sub, index) in currentSubtitles.slice(Math.max(0, activeSubtitleIndex-2), Math.min(currentSubtitles.length, activeSubtitleIndex+3))">
+                                <button @click="activeSubtitleIndex = currentSubtitles.indexOf(sub)" class="h-2.5 w-2.5 rounded-full" :class="currentSubtitles.indexOf(sub) === activeSubtitleIndex ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"></button>
+                            </template>
+                        </div>
+                        <button @click="nextSubtitle()" :disabled="activeSubtitleIndex === currentSubtitles.length - 1" class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 disabled:opacity-50"><span class="material-symbols-outlined">chevron_right</span></button>
+            </div>
+        </div>
+            </main>
+             <footer class="sticky bottom-0 border-t border-gray-200/10 bg-background-light/80 p-4 backdrop-blur-sm dark:bg-background-dark/80">
+                <button @click="reprocessVideo()" :disabled="isLoading" class="w-full rounded-lg bg-primary py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:bg-gray-400">
+                    <span x-text="isLoading ? 'Uygulanıyor...' : 'Değişiklikleri Kaydet ve Uygula'"></span>
+                </button>
+            </footer>
+    </div>
 
         <!-- 4. Stil Düzenleyici Ekranı -->
         <div x-show="currentScreen === 'style_editor'" x-transition.opacity.duration.200ms class="flex flex-col h-screen">
@@ -230,91 +222,185 @@
                 <div class="h-10 w-10"></div>
             </header>
             <main class="flex-1 overflow-y-auto p-6">
-                <!-- Live Style Preview -->
-                <div class="mb-6">
-                    <div class="relative w-full aspect-[9/16] bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                        <div class="absolute text-center"
-                             :style="getLivePreviewStyle()">
-                            <span class="px-2" :style="getLivePreviewBackgroundStyle()">Örnek Altyazı Metni</span>
-                        </div>
-                    </div>
-                </div>
-
                  <div class="grid grid-cols-1 gap-6">
                      <div>
                         <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Altyazı Stili</h3>
                         <div class="space-y-4">
-                            <!-- Font Family -->
-                            <div>
-                                <label for="fontFamily" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Yazı Tipi</label>
-                                <select id="fontFamily" x-model="styleSettings.fontFamily" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
-                                    <option>Roboto</option>
-                                    <option>Avenir</option>
-                                </select>
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Metin Boyutu</span><span x-text="styleSettings.fontSize"></span>
+                                </label>
+                                <input type="range" min="8" max="150" x-model="styleSettings.fontSize" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
                             </div>
-                            <!-- Font Size -->
-                            <div>
-                                <label for="fontSize" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Yazı Tipi Boyutu: <span x-text="styleSettings.fontSize" class="font-bold"></span></label>
-                                <input type="range" id="fontSize" x-model.number="styleSettings.fontSize" min="10" max="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Dikey Konum</span><span x-text="styleSettings.marginV"></span>
+                                </label>
+                                <input type="range" min="10" max="600" x-model="styleSettings.marginV" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
                             </div>
-                             <!-- Vertical Position -->
-                             <div>
-                                <label for="verticalPosition" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Dikey Konum: <span x-text="styleSettings.marginV" class="font-bold"></span></label>
-                                <input type="range" id="verticalPosition" x-model.number="styleSettings.marginV" min="0" max="1000" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
-                            </div>
-                            <!-- Italic -->
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">İtalik</span>
-                                <button @click="styleSettings.italic = !styleSettings.italic" :class="{'bg-primary': styleSettings.italic, 'bg-gray-200 dark:bg-gray-700': !styleSettings.italic}" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" role="switch" aria-checked="false">
-                                    <span :class="{'translate-x-5': styleSettings.italic, 'translate-x-0': !styleSettings.italic}" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-                                </button>
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">İtalik Metin</label>
+                                <input type="checkbox" x-model="styleSettings.italic" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Görünüm ve Efektler</h3>
-                        <div class="space-y-4">
-                           
-                            <!-- Shadow -->
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Gölge Ekle</span>
-                                <button @click="styleSettings.shadow = !styleSettings.shadow" :class="{'bg-primary': styleSettings.shadow, 'bg-gray-200 dark:bg-gray-700': !styleSettings.shadow}" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" role="switch" aria-checked="false">
-                                    <span :class="{'translate-x-5': styleSettings.shadow, 'translate-x-0': !styleSettings.shadow}" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-                                </button>
-                            </div>
-                             <!-- Outline -->
-                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Dış Çizgi Ekle</span>
-                                <button @click="styleSettings.outline = !styleSettings.outline" :class="{'bg-primary': styleSettings.outline, 'bg-gray-200 dark:bg-gray-700': !styleSettings.outline}" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" role="switch" aria-checked="false">
-                                    <span :class="{'translate-x-5': styleSettings.outline, 'translate-x-0': !styleSettings.outline}" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-                                </button>
-                            </div>
-                             <!-- Background -->
-                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan Rengi</span>
-                                <input type="color" x-model="styleSettings.backgroundColor" class="w-10 h-10">
-                            </div>
-                             <div>
-                                <label for="backgroundOpacity" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan Opaklığı: <span x-text="styleSettings.backgroundOpacity" class="font-bold"></span></label>
-                                <input type="range" id="backgroundOpacity" x-model.number="styleSettings.backgroundOpacity" min="0" max="1" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
-                            </div>
-                            <!-- Animation Style -->
-                            <div>
-                                <label for="animationStyle" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Altyazı Animasyonu</label>
-                                <select id="animationStyle" x-model="styleSettings.animationStyle" class="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
-                                    <option value="none">Yok</option>
-                                    <option value="fadeIn">Yumuşak Giriş (Fade In)</option>
+                            <div class="control-item">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Font Seçimi</label>
+                                <select x-model="styleSettings.fontFamily" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:border-primary">
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Avenir">Avenir LT Std Medium TR Bold Italic TR</option>
                                 </select>
-                            </div>
-                        </div>
-                    </div>
+                </div>
+            </div>
+        </div>
 
-                 </div>
+                    <!-- Metin Düzeni Ayarları -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Metin Düzeni</h3>
+                        <div class="space-y-4">
+                            <!-- Metin Genişliği -->
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Metin Genişliği</span><span x-text="styleSettings.maxWidth + '%'"></span>
+                                </label>
+                                <input type="range" min="50" max="95" x-model="styleSettings.maxWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            
+                            <!-- Kenar Boşluğu -->
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Kenar Boşluğu</span><span x-text="styleSettings.marginH + 'px'"></span>
+                                </label>
+                                <input type="range" min="10" max="50" x-model="styleSettings.marginH" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            
+                            <!-- Satır Arası -->
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Satır Arası</span><span x-text="styleSettings.lineSpacing + 'px'"></span>
+                                </label>
+                                <input type="range" min="0" max="20" x-model="styleSettings.lineSpacing" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            
+                            <!-- Metin Hizalama -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Metin Hizalama</label>
+                                <div class="flex gap-2">
+                                    <button @click="styleSettings.textAlign = 'left'" 
+                                            :class="styleSettings.textAlign === 'left' ? 'bg-primary text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                                            class="px-3 py-2 rounded text-sm font-medium transition-colors">
+                                        Sol
+                                    </button>
+                                    <button @click="styleSettings.textAlign = 'center'" 
+                                            :class="styleSettings.textAlign === 'center' ? 'bg-primary text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                                            class="px-3 py-2 rounded text-sm font-medium transition-colors">
+                                        Orta
+                                    </button>
+                                    <button @click="styleSettings.textAlign = 'right'" 
+                                            :class="styleSettings.textAlign === 'right' ? 'bg-primary text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
+                                            class="px-3 py-2 rounded text-sm font-medium transition-colors">
+                                        Sağ
+                                    </button>
+                                </div>
+                            </div>
+            </div>
+        </div>
+
+                    <!-- Efekt Ayarları -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Görsel Efektler</h3>
+                        <div class="space-y-4">
+                            <!-- Gölge -->
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Gölge Efekti</label>
+                                <input type="checkbox" x-model="styleSettings.shadow" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                            
+                            <!-- Kontur -->
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Kontur Efekti</label>
+                                <input type="checkbox" x-model="styleSettings.outline" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+    </div>
+
+                            <!-- Kontur Kalınlığı -->
+                            <div x-show="styleSettings.outline" class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Kontur Kalınlığı</span><span x-text="styleSettings.outlineWidth + 'px'"></span>
+                                </label>
+                                <input type="range" min="1" max="5" x-model="styleSettings.outlineWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+        </div>
+                            
+                            <!-- Gölge Mesafesi -->
+                            <div x-show="styleSettings.shadow" class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Gölge Mesafesi</span><span x-text="styleSettings.shadowOffset + 'px'"></span>
+                                </label>
+                                <input type="range" min="1" max="5" x-model="styleSettings.shadowOffset" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+        </div>
+                            
+                            <!-- Arka Plan Rengi -->
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan Rengi</label>
+                                <div class="flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 pl-3">
+                                    <input type="color" 
+                                           x-model="styleSettings.backgroundColor"
+                                           class="w-6 h-6 p-0 border-0 rounded-full cursor-pointer appearance-none bg-transparent">
+                                    <input type="text" 
+                                           x-model="styleSettings.backgroundColor"
+                                           placeholder="#000000"
+                                           class="w-20 bg-transparent text-xs font-mono focus:ring-0 border-0">
+        </div>
+    </div>
+
+                            <!-- Arka Plan Şeffaflığı -->
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Arka Plan Şeffaflığı</span><span x-text="Math.round(styleSettings.backgroundOpacity * 100) + '%'"></span>
+                                </label>
+                                <input type="range" min="0" max="1" step="0.1" x-model="styleSettings.backgroundOpacity" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                        </div>
+    </div>
+
+                    <!-- Speaker Colors -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Varsayılan Konuşmacı Renkleri</h3>
+                        <div class="space-y-3">
+                            <template x-for="(color, speaker) in styleSettings.speakerColors" :key="speaker">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="speaker"></label>
+                                    <div class="flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 pl-3">
+                                        <input type="color" 
+                                               :value="styleSettings.speakerColors[speaker] || '#ffffff'"
+                                               @input="styleSettings.speakerColors[speaker] = $event.target.value"
+                                               class="w-6 h-6 p-0 border-0 rounded-full cursor-pointer appearance-none bg-transparent">
+                                        <input type="text" 
+                                               :value="styleSettings.speakerColors[speaker] || '#ffffff'"
+                                               @input="styleSettings.speakerColors[speaker] = $event.target.value"
+                                               placeholder="#ffffff"
+                                               class="w-20 bg-transparent text-xs font-mono focus:ring-0 border-0">
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                     <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Altyazı Zamanlaması</h3>
+                        <div class="space-y-2">
+                            <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <span>Uzatma Süresi (s)</span><span x-text="styleSettings.extendDuration"></span>
+                            </label>
+                            <input type="range" min="0" max="5" step="0.1" x-model="styleSettings.extendDuration" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+        </div>
+                        <div class="mt-6 flex justify-end">
+                            <button @click="extendAllDurations" class="flex items-center justify-center rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-opacity-90 transition-colors">
+                                <span>Tüm Bitiş Sürelerini Uzat</span>
+                            </button>
+        </div>
+        </div>
+    </div>
             </main>
              <footer class="sticky bottom-0 border-t border-gray-200/10 bg-background-light/80 p-4 backdrop-blur-sm dark:bg-background-dark/80">
                 <button @click="reprocessVideo()" :disabled="isLoading" class="w-full rounded-lg bg-primary py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:bg-gray-400">
-                    <span x-text="isLoading ? 'Uygulanıyor...' : 'Değişiklikleri Kaydet ve Uygula'"></span>
+                     <span x-text="isLoading ? 'Uygulanıyor...' : 'Stil Değişikliklerini Uygula'"></span>
                 </button>
             </footer>
         </div>
@@ -336,12 +422,11 @@
             
             originalVideoFile: null, // Orijinal video dosyasını saklamak için
             currentVideoPath: '', // Bu artık Vercel için kullanılmayacak
-            videoPreviewUrl: null,
+            videoPreviewUrl: '',
             currentSubtitles: [],
             activeSubtitleIndex: 0,
             history: [],
-            future: [],
-            wavesurfer: null,
+            historyIndex: -1,
             
             // Style Settings
             styleSettings: {
@@ -361,8 +446,7 @@
                 outlineWidth: 2, // Kontur kalınlığı (px)
                 shadowOffset: 2, // Gölge mesafesi (px)
                 backgroundColor: 'black', // Arka plan rengi
-                backgroundOpacity: 0.5, // Arka plan şeffaflığı (0-1)
-                animationStyle: 'none' // Yeni eklenen animasyon ayarı
+                backgroundOpacity: 0.5 // Arka plan şeffaflığı (0-1)
             },
 
             // --- METHODS ---
@@ -667,108 +751,11 @@
 
             removeSubtitle(index) {
                 this.currentSubtitles.splice(index, 1);
-                // Eğer silinen altyazı son altyazı ise ve index 0'dan büyükse, bir öncekine git
-                if (this.activeSubtitleIndex >= this.currentSubtitles.length && this.activeSubtitleIndex > 0) {
-                    this.activeSubtitleIndex--;
-                }
                 this.recordHistory(); // History'i güncelle
-            },
-
-            getLivePreviewStyle() {
-                const styles = {
-                    fontFamily: this.styleSettings.fontFamily,
-                    fontSize: `${this.styleSettings.fontSize}px`,
-                    fontStyle: this.styleSettings.italic ? 'italic' : 'normal',
-                    color: '#FFFF00', // Sabit sarı renk
-                    textAlign: this.styleSettings.textAlign,
-                    '--webkit-text-stroke-width': this.styleSettings.outline ? `${this.styleSettings.outlineWidth}px` : '0',
-                    '--webkit-text-stroke-color': 'black',
-                    textShadow: this.styleSettings.shadow ? `black ${this.styleSettings.shadowOffset}px ${this.styleSettings.shadowOffset}px 0px` : 'none',
-                    bottom: `${(this.styleSettings.marginV / 1920) * 100}%`, // Yaklaşık dikey konumlandırma
-                    width: `${this.styleSettings.maxWidth}%`,
-                    padding: `0 ${this.styleSettings.marginH}px`,
-                };
-                 return Object.entries(styles).map(([key, value]) => `${key}: ${value}`).join(';');
-            },
-
-            getLivePreviewBackgroundStyle() {
-                const rgbaColor = `rgba(0, 0, 0, ${this.styleSettings.backgroundOpacity})`;
-                const styles = {
-                    backgroundColor: rgbaColor,
-                    boxDecorationBreak: 'clone',
-                    '-webkit-box-decoration-break': 'clone',
-                };
-                return Object.entries(styles).map(([key, value]) => `${key}: ${value}`).join(';');
-            },
-
-            addNewSubtitle() {
-                const lastSubtitle = this.currentSubtitles[this.currentSubtitles.length - 1];
-                const newStartTime = lastSubtitle ? parseFloat(lastSubtitle.endTime) + 0.1 : 0;
-                const newEndTime = newStartTime + 2.0;
-
-                const newSubtitle = {
-                    speaker: lastSubtitle ? lastSubtitle.speaker : 'Konuşmacı 1',
-                    startTime: newStartTime.toFixed(3),
-                    endTime: newEndTime.toFixed(3),
-                    line: 'Yeni altyazı...',
-                    overrideColor: ''
-                };
-
-                this.currentSubtitles.push(newSubtitle);
-                this.activeSubtitleIndex = this.currentSubtitles.length - 1;
-                this.recordHistory();
-            },
-            init() {
-                this.recordHistory = _.debounce(this.recordHistory, 500);
-                 this.$watch('currentScreen', (newScreen) => {
-                    if (newScreen === 'subtitle_editor' && this.videoPreviewUrl && !this.wavesurfer) {
-                        this.initWavesurfer();
-                    }
-                });
-            },
-            
-            initWavesurfer() {
-                if (this.wavesurfer) {
-                    this.wavesurfer.destroy();
-                }
-                this.wavesurfer = WaveSurfer.create({
-                    container: '#waveform',
-                    waveColor: '#A8B1FF',
-                    progressColor: '#5B21B6',
-                    height: 100,
-                    responsive: true,
-                    plugins: [
-                        WaveSurfer.regions.create({})
-                    ]
-                });
-
-                this.wavesurfer.load(this.videoPreviewUrl);
-
-                this.wavesurfer.on('ready', () => {
-                    this.currentSubtitles.forEach((sub, index) => {
-                        this.wavesurfer.addRegion({
-                            id: index,
-                            start: sub.startTime,
-                            end: sub.endTime,
-                            content: sub.line,
-                            color: 'rgba(255, 255, 0, 0.1)',
-                            drag: true,
-                            resize: true,
-                        });
-                    });
-                });
-
-                this.wavesurfer.on('region-updated', (region) => {
-                    const index = region.id;
-                    this.currentSubtitles[index].startTime = region.start.toFixed(3);
-                    this.currentSubtitles[index].endTime = region.end.toFixed(3);
-                    this.recordHistory();
-                });
             }
         }
     }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-    <script src="https://unpkg.com/wavesurfer.js"></script>
 </body>
 </html>
