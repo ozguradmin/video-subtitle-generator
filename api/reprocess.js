@@ -8,20 +8,8 @@ const { v4: uuidv4 } = require('uuid');
 const os = require('os');
 
 // Hex renk formatını FFmpeg drawtext formatına çevir
-function hexToDrawtext(hexColor) {
-    if (!hexColor) return 'white';
-    
-    // Eğer zaten FFmpeg formatındaysa (0xRRGGBB) döndür
-    if (hexColor.startsWith('0x')) {
-        return hexColor;
-    }
-    
-    // Hex renk formatını temizle
-    let cleanHex = hexColor.replace('#', '');
-    if (cleanHex.length === 3) {
-        // #RGB -> #RRGGBB
-        cleanHex = cleanHex.split('').map(c => c + c).join('');
-    }
+function hexToDrawtext(hex) {
+    if (!hex) return '0xFFFFFF';
     
     // Renk isimlerini hex'e çevir
     const colorMap = {
@@ -35,13 +23,26 @@ function hexToDrawtext(hexColor) {
         'black': '0x000000'
     };
     
-    if (colorMap[hexColor.toLowerCase()]) {
-        return colorMap[hexColor.toLowerCase()];
+    if (colorMap[hex.toLowerCase()]) {
+        return colorMap[hex.toLowerCase()];
     }
     
-    // Hex renk formatını FFmpeg formatına çevir
-    if (cleanHex.length === 6) {
-        return `0x${cleanHex.toUpperCase()}`;
+    // Eğer zaten FFmpeg formatındaysa (0xRRGGBB) döndür
+    if (hex.startsWith('0x')) {
+        return hex;
+    }
+    
+    // ASS formatındaki &HBBGGRR& formatını destekler
+    if (hex.startsWith('&H')) {
+        const b = hex.substring(2, 4);
+        const g = hex.substring(4, 6);
+        const r = hex.substring(6, 8);
+        return `0x${r}${g}${b}`;
+    }
+    
+    // #RRGGBB formatını destekler
+    if (hex.startsWith('#')) {
+        return `0x${hex.substring(1).toUpperCase()}`;
     }
     
     return '0xFFFFFF'; // Varsayılan beyaz
@@ -241,7 +242,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 // Hex renk formatını FFmpeg formatına çevir
                 const ffmpegColor = hexToDrawtext(color);
                 
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV}`);
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} -> ${ffmpegColor} - Boyut: ${fontSize} - Konum: ${marginV}`);
                 
                 // İtalik ayarı için font dosyası seçimi
                 let fontFile = currentFontPath;
