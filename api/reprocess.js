@@ -99,15 +99,22 @@ function escapeTextForFfmpeg(text) {
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     const { 
+        fontFile = null, 
+        fontSize = 28, 
+        marginV = 120, 
+        italic = false, 
+        speakerColors = {},
         fontFamily = 'Roboto',
-        fontSize = 44,
-        verticalPosition = 255,
-        italic = false,
-        reelsWidth = 80,
-        reelsMargin = 20,
+        maxWidth = 80,
+        marginH = 20,
         lineSpacing = 5,
         textAlign = 'center',
-        effects = { shadow: true, outline: true, background: 'black@0.5' }
+        shadow = true,
+        outline = true,
+        outlineWidth = 2,
+        shadowOffset = 2,
+        backgroundColor = 'black',
+        backgroundOpacity = 0.5
     } = options;
     
     const logs = [];
@@ -132,14 +139,10 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             
             logs.push(`📁 ${fontFamily} fontu kullanılıyor: ${fontPath}`);
             logs.push('🔵 MODE: drawtext (doğrudan font dosyası ile)');
-            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${verticalPosition}, İtalik=${italic}`);
-            logs.push(`📐 Reels Ayarları: Genişlik=${reelsWidth}%, Kenar=${reelsMargin}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
-            
-            const shadow = effects.shadow !== false;
-            const outline = effects.outline !== false;
-            const background = effects.background || 'black@0.5';
-            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${background}`);
-            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(options.speakerColors || {})}`);
+            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
+            logs.push(`📐 Reels Ayarları: Genişlik=${maxWidth}%, Kenar=${marginH}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
+            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${backgroundColor}@${backgroundOpacity}`);
+            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
 
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
@@ -151,8 +154,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 let color = 'white';
                 if (sub.overrideColor) {
                     color = sub.overrideColor;
-                } else if (options.speakerColors && options.speakerColors[sub.speaker]) {
-                    color = options.speakerColors[sub.speaker];
+                } else if (speakerColors[sub.speaker]) {
+                    color = speakerColors[sub.speaker];
                 } else {
                     // Varsayılan renk paleti
                     const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
@@ -166,41 +169,46 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 // Hizalama pozisyonu hesapla
                 let xPosition;
                 if (textAlign === 'left') {
-                    xPosition = reelsMargin;
+                    xPosition = marginH;
                 } else if (textAlign === 'right') {
-                    xPosition = `w-${reelsMargin}-text_w`;
+                    xPosition = `w-${marginH}-text_w`;
                 } else { // center
                     xPosition = `(w-text_w)/2`;
                 }
                 
                 // Arka plan rengi ve şeffaflığı
-                const [bgColorName, bgOpacityValue] = (background || 'black@0.5').split('@');
-                const bgColor = hexToDrawtext(bgColorName);
-                const bgOpacity = Math.round((parseFloat(bgOpacityValue) || 0.5) * 255).toString(16).padStart(2, '0');
+                const bgColor = hexToDrawtext(backgroundColor);
+                const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
                 const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
                 
                 // Gölge ve kontur efektleri
-                let effectsStr = '';
+                let effects = '';
                 if (shadow) {
-                    const shadowOffset = effects.shadowOffset || 2;
-                    effectsStr += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
+                    effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
                 }
                 if (outline) {
-                    const outlineWidth = effects.outlineWidth || 2;
-                    effectsStr += `:borderw=${outlineWidth}:bordercolor=black`;
+                    effects += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
                 
                 // Metin sarmalama için genişlik hesapla
-                const textWidth = `w*${reelsWidth}/100-${reelsMargin*2}`;
+                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
                 
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${verticalPosition} - Hizalama: ${textAlign}`);
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${verticalPosition}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effectsStr}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
-            const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
+            // Eğer altyazı yoksa sadece video resize yap
+            let fullFilter;
+            if (drawtextFilters.length === 0) {
+                fullFilter = videoResizingFilter;
+                logs.push('⚠️ Altyazı bulunamadı, sadece video resize yapılıyor');
+            } else {
+                fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
+            }
+            
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
             command = ffmpeg(videoPath) // videoPath'i kullan
@@ -317,7 +325,7 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
         let { subtitles, selectedStyle, speakerColors } = req.body;
 
         // Gelen verileri doğru formatlara çevir
-        const subtitlesData = JSON.parse(subtitles);
+                const subtitlesData = JSON.parse(subtitles);
         const style = JSON.parse(selectedStyle);
         const colors = JSON.parse(speakerColors);
 
@@ -326,16 +334,19 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
         }
 
         console.log('🎨 Gönderilen stil ayarları:');
-        console.log(`   Font Ailesi: ${style.fontFamily}, Boyut: ${style.fontSize}, Dikey Konum: ${style.verticalPosition}`);
+        console.log(`   Font Ailesi: ${style.fontFamily}, Boyut: ${style.fontSize}, Dikey Konum: ${style.marginV}`);
         
-        // burnSubtitles fonksiyonuna dosya yolunu gönder
-        const result = await burnSubtitles(inputPath, subtitlesData, style, colors);
+        // burnSubtitles fonksiyonuna doğru parametreleri gönder
+        const result = await burnSubtitles(inputPath, subtitlesData, {
+            ...style,
+            speakerColors: colors
+        });
         
         console.log('✅ Video yeniden işleme tamamlandı');
         console.log(`📊 İşlem logları: ${result.logs.length} adet`);
                 
-        res.json({ 
-            success: true, 
+                res.json({ 
+                    success: true, 
             message: 'Video başarıyla yeniden işlendi',
             filename: result.filename,
             logs: result.logs,

@@ -219,9 +219,9 @@
                             </div>
                             <div class="space-y-2">
                                 <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <span>Dikey Konum</span><span x-text="styleSettings.verticalPosition"></span>
+                                    <span>Dikey Konum</span><span x-text="styleSettings.marginV"></span>
                                 </label>
-                                <input type="range" min="10" max="600" x-model="styleSettings.verticalPosition" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <input type="range" min="10" max="600" x-model="styleSettings.marginV" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
                             </div>
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">İtalik Metin</label>
@@ -244,17 +244,17 @@
                             <!-- Metin Genişliği -->
                             <div class="space-y-2">
                                 <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <span>Metin Genişliği</span><span x-text="styleSettings.reelsWidth + '%'"></span>
+                                    <span>Metin Genişliği</span><span x-text="styleSettings.maxWidth + '%'"></span>
                                 </label>
-                                <input type="range" min="50" max="95" x-model="styleSettings.reelsWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <input type="range" min="50" max="95" x-model="styleSettings.maxWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
                             </div>
                             
                             <!-- Kenar Boşluğu -->
                             <div class="space-y-2">
                                 <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <span>Kenar Boşluğu</span><span x-text="styleSettings.reelsMargin + 'px'"></span>
+                                    <span>Kenar Boşluğu</span><span x-text="styleSettings.marginH + 'px'"></span>
                                 </label>
-                                <input type="range" min="10" max="50" x-model="styleSettings.reelsMargin" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <input type="range" min="10" max="50" x-model="styleSettings.marginH" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
                             </div>
                             
                             <!-- Satır Arası -->
@@ -296,39 +296,52 @@
                             <!-- Gölge -->
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Gölge Efekti</label>
-                                <input type="checkbox" x-model="styleSettings.effects.shadow" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <input type="checkbox" x-model="styleSettings.shadow" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                             </div>
                             
                             <!-- Kontur -->
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Kontur Efekti</label>
-                                <input type="checkbox" x-model="styleSettings.effects.outline" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <input type="checkbox" x-model="styleSettings.outline" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
     </div>
 
                             <!-- Kontur Kalınlığı -->
-                            <div x-show="styleSettings.effects.outline" class="space-y-2">
+                            <div x-show="styleSettings.outline" class="space-y-2">
                                 <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <span>Kontur Kalınlığı</span><span x-text="(styleSettings.effects.outlineWidth || 2) + 'px'"></span>
+                                    <span>Kontur Kalınlığı</span><span x-text="styleSettings.outlineWidth + 'px'"></span>
                                 </label>
-                                <input type="range" min="1" max="5" x-model="styleSettings.effects.outlineWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <input type="range" min="1" max="5" x-model="styleSettings.outlineWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
         </div>
                             
                             <!-- Gölge Mesafesi -->
-                            <div x-show="styleSettings.effects.shadow" class="space-y-2">
+                            <div x-show="styleSettings.shadow" class="space-y-2">
                                 <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <span>Gölge Mesafesi</span><span x-text="(styleSettings.effects.shadowOffset || 2) + 'px'"></span>
+                                    <span>Gölge Mesafesi</span><span x-text="styleSettings.shadowOffset + 'px'"></span>
                                 </label>
-                                <input type="range" min="1" max="5" x-model="styleSettings.effects.shadowOffset" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <input type="range" min="1" max="5" x-model="styleSettings.shadowOffset" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
         </div>
                             
                             <!-- Arka Plan Rengi -->
                             <div class="space-y-2">
-                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan</label>
-                                <input type="text" 
-                                       x-model="styleSettings.effects.background"
-                                       placeholder="black@0.5"
-                                       class="w-full bg-gray-200 dark:bg-gray-700 text-xs font-mono focus:ring-primary border-0 rounded">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan Rengi</label>
+                                <div class="flex items-center gap-2 rounded-full bg-gray-200 dark:bg-gray-700 pl-3">
+                                    <input type="color" 
+                                           x-model="styleSettings.backgroundColor"
+                                           class="w-6 h-6 p-0 border-0 rounded-full cursor-pointer appearance-none bg-transparent">
+                                    <input type="text" 
+                                           x-model="styleSettings.backgroundColor"
+                                           placeholder="#000000"
+                                           class="w-20 bg-transparent text-xs font-mono focus:ring-0 border-0">
+        </div>
     </div>
+
+                            <!-- Arka Plan Şeffaflığı -->
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Arka Plan Şeffaflığı</span><span x-text="Math.round(styleSettings.backgroundOpacity * 100) + '%'"></span>
+                                </label>
+                                <input type="range" min="0" max="1" step="0.1" x-model="styleSettings.backgroundOpacity" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
                         </div>
     </div>
 
@@ -402,21 +415,23 @@
             
             // Style Settings
             styleSettings: {
-                fontFamily: 'Roboto',
                 fontSize: 44,
-                verticalPosition: 255, // marginV yerine bu kullanılacak
+                marginV: 255,
+                extendDuration: 0.5,
                 italic: false,
-                reelsWidth: 80, // maxWidth yerine bu
-                reelsMargin: 20, // marginH yerine bu
-                lineSpacing: 5,
-                textAlign: 'center',
-                effects: {
-                    shadow: true,
-                    outline: true,
-                    background: 'black@0.5' // backgroundColor ve backgroundOpacity birleşimi
-                },
-                speakerColors: {},
-                extendDuration: 0.5
+                speakerColors: {}, // Başlangıçta boş, dinamik dolacak
+                fontFamily: 'Roboto', // Font seçimi
+                // Yeni ayarlar
+                maxWidth: 80, // Metin genişliği (%)
+                marginH: 20, // Sol/sağ kenar boşluğu (px)
+                lineSpacing: 5, // Satır arası boşluk (px)
+                textAlign: 'center', // Metin hizalama (left, center, right)
+                shadow: true, // Gölge efekti
+                outline: true, // Kontur efekti
+                outlineWidth: 2, // Kontur kalınlığı (px)
+                shadowOffset: 2, // Gölge mesafesi (px)
+                backgroundColor: 'black', // Arka plan rengi
+                backgroundOpacity: 0.5 // Arka plan şeffaflığı (0-1)
             },
 
             // --- METHODS ---
@@ -550,8 +565,6 @@
 
                 const formData = new FormData();
                 formData.append('video', videoInput.files[0]);
-                formData.append('selectedStyle', JSON.stringify(this.styleSettings));
-                formData.append('speakerColors', JSON.stringify(this.styleSettings.speakerColors));
 
                 try {
                     const response = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -632,11 +645,11 @@
 
                 // Debug logları
                 this.addLog(`🎨 Gönderilen stil ayarları:`);
-                this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}, Dikey Konum: ${this.styleSettings.verticalPosition}, İtalik: ${this.styleSettings.italic}`);
-                this.addLog(`   Metin Genişliği: ${this.styleSettings.reelsWidth}%, Kenar Boşluğu: ${this.styleSettings.reelsMargin}px, Satır Arası: ${this.styleSettings.lineSpacing}px`);
-                this.addLog(`   Hizalama: ${this.styleSettings.textAlign}, Gölge: ${this.styleSettings.effects.shadow}, Kontur: ${this.styleSettings.effects.outline}`);
+                this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}, Dikey Konum: ${this.styleSettings.marginV}, İtalik: ${this.styleSettings.italic}`);
+                this.addLog(`   Metin Genişliği: ${this.styleSettings.maxWidth}%, Kenar Boşluğu: ${this.styleSettings.marginH}px, Satır Arası: ${this.styleSettings.lineSpacing}px`);
+                this.addLog(`   Hizalama: ${this.styleSettings.textAlign}, Gölge: ${this.styleSettings.shadow}, Kontur: ${this.styleSettings.outline}`);
                 
-                const background = this.styleSettings.effects.background;
+                const background = this.styleSettings.backgroundColor + '@' + this.styleSettings.backgroundOpacity;
                 this.addLog(`   Arka Plan: ${background}`);
                 this.addLog(`   Konuşmacı Renkleri: ${JSON.stringify(this.styleSettings.speakerColors)}`);
 

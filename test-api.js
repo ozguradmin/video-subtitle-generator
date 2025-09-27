@@ -1,63 +1,81 @@
 const fs = require('fs');
 const FormData = require('form-data');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-async function testAPI() {
-    try {
-        console.log('🧪 API testi başlatılıyor...');
-        
-        const form = new FormData();
-        form.append('video', fs.createReadStream('test_video.mp4'), {
-            filename: 'test_video.mp4',
-            contentType: 'video/mp4'
-        });
-        form.append('selectedStyle', JSON.stringify({
-            fontFamily: 'Roboto',
-            fontSize: 44,
-            verticalPosition: 255,
-            italic: false,
-            reelsWidth: 80,
-            reelsMargin: 20,
-            lineSpacing: 5,
-            textAlign: 'center',
-            effects: {
-                shadow: true,
-                outline: true,
-                background: 'black@0.5'
-            }
-        }));
-        form.append('speakerColors', JSON.stringify({}));
+// Test video oluştur (basit)
+const testVideoPath = 'test-api-video.mp4';
+const outputPath = 'test-api-output.mp4';
 
-        console.log('📤 Video yükleniyor...');
-        
-        const response = await fetch('http://localhost:3000/api/upload', {
-            method: 'POST',
-            body: form,
-            headers: {
-                ...form.getHeaders(),
-                'Connection': 'close'
-            }
-        });
+console.log('🎥 Test video oluşturuluyor...');
 
-        console.log(`📊 Response Status: ${response.status}`);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.log('❌ Hata:', errorText);
-            return;
-        }
+// Basit test video oluştur
+const { spawn } = require('child_process');
+const ffmpeg = require('@ffmpeg-installer/ffmpeg');
 
-        const result = await response.json();
-        console.log('✅ Başarılı!');
-        console.log('📝 Log sayısı:', result.logs ? result.logs.length : 0);
-        
-        if (result.logs) {
-            console.log('🔍 Son 5 log:');
-            result.logs.slice(-5).forEach(log => console.log('  ', log));
-        }
-        
-    } catch (error) {
-        console.error('❌ Test hatası:', error.message);
+const command = spawn(ffmpeg.path, [
+    '-f', 'lavfi',
+    '-i', 'color=c=blue:size=640x480:duration=3',
+    '-y',
+    testVideoPath
+]);
+
+command.on('close', (code) => {
+    if (code === 0) {
+        console.log('✅ Test video oluşturuldu');
+        testAPI();
+    } else {
+        console.error('❌ Video oluşturma hatası');
     }
-}
+});
 
-testAPI();
+function testAPI() {
+    console.log('🚀 API testi başlıyor...');
+    
+    // FormData oluştur
+    const form = new FormData();
+    form.append('video', fs.createReadStream(testVideoPath));
+    
+    // API'ye istek gönder
+    fetch('http://localhost:3000/api/upload', {
+        method: 'POST',
+        body: form
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📊 API Yanıtı:');
+        console.log('Success:', data.success);
+        console.log('Message:', data.message);
+        console.log('Logs sayısı:', data.logs ? data.logs.length : 0);
+        
+        if (data.logs) {
+            console.log('\n📝 İşlem Logları:');
+            data.logs.forEach((log, index) => {
+                console.log(`${index + 1}. ${log}`);
+            });
+        }
+        
+        if (data.success) {
+            console.log('\n🎉 API testi başarılı!');
+        } else {
+            console.log('\n❌ API testi başarısız!');
+        }
+        
+        // Temizlik
+        try {
+            if (fs.existsSync(testVideoPath)) fs.unlinkSync(testVideoPath);
+            console.log('🗑️ Test dosyası temizlendi');
+        } catch (e) {
+            console.log('⚠️ Temizlik hatası:', e.message);
+        }
+    })
+    .catch(error => {
+        console.error('❌ API test hatası:', error.message);
+        
+        // Temizlik
+        try {
+            if (fs.existsSync(testVideoPath)) fs.unlinkSync(testVideoPath);
+        } catch (e) {
+            console.log('⚠️ Temizlik hatası:', e.message);
+        }
+    });
+}
