@@ -19,8 +19,16 @@ const fontPaths = {
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// Multer konfigürasyonu
-const storage = multer.memoryStorage();
+// Multer konfigürasyonu - Geçici dosyaya kaydet
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, os.tmpdir());
+    },
+    filename: (req, file, cb) => {
+        cb(null, `upload_${uuidv4()}${path.extname(file.originalname)}`);
+    }
+});
+
 const upload = multer({ 
     storage: storage,
     limits: {
@@ -89,7 +97,7 @@ function escapeTextForFfmpeg(text) {
 }
 
 // Altyazı yakma fonksiyonu
-async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
+async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
         fontSize = 28, 
@@ -112,11 +120,11 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const logs = [];
     const tempDir = os.tmpdir();
     const uniqueId = uuidv4();
-    const inputPath = path.join(tempDir, `input_${uniqueId}.mp4`);
     const outputFilename = `subtitled_video_${Date.now()}.mp4`;
     const outputPath = path.join(tempDir, outputFilename);
 
-    fs.writeFileSync(inputPath, videoBuffer);
+    // Gelen videoPath'i doğrudan kullan, buffer'dan yazma
+    // fs.writeFileSync(inputPath, videoBuffer); 
 
     return new Promise((resolve, reject) => {
         let command;
@@ -195,7 +203,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
-            command = ffmpeg(inputPath)
+            command = ffmpeg(videoPath) // videoPath'i kullan
                 .videoFilter(fullFilter);
 
             command
@@ -243,11 +251,11 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                         
                         // Temp dosyaları temizle
                         try {
-                            fs.unlinkSync(inputPath);
+                            // inputPath artık req.file.path olduğu için burada silinmemeli, endpoint'te silinecek
                             fs.unlinkSync(outputPath);
-                            logs.push('🗑️ Temp dosyalar temizlendi');
+                            logs.push('🗑️ Temp output dosyası temizlendi');
                         } catch (e) {
-                            logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
+                            logs.push('⚠️ Temp output dosya temizleme hatası: ' + e.message);
                         }
                         
                         resolve({ 
@@ -276,7 +284,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     
                     // Temp dosyaları temizle
                     try {
-                        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+                        // if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
                         logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
@@ -297,48 +305,62 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
 
 // Reprocess endpoint
 app.post('/api/reprocess', upload.single('video'), async (req, res) => {
-    console.log('🔄 Video yeniden işleniyor...');
-    
-    if (!req.file) {
-        return res.status(400).json({ error: 'Video dosyası bulunamadı' });
-    }
-
+    let inputPath = null;
     try {
-        const { subtitlesData, options } = req.body;
+        console.log('🔄 Video yeniden işleniyor...');
         
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Video dosyası bulunamadı' });
+        }
+        inputPath = req.file.path; // multer tarafından kaydedilen dosyanın yolu
+
+        let { subtitles, selectedStyle, speakerColors } = req.body;
+
+        // Gelen verileri doğru formatlara çevir
+        const subtitlesData = JSON.parse(subtitles);
+        const style = JSON.parse(selectedStyle);
+        const colors = JSON.parse(speakerColors);
+
         if (!subtitlesData || !subtitlesData.subtitles) {
-            return res.status(400).json({ error: 'Altyazı verisi bulunamadı' });
+            return res.status(400).json({ success: false, message: 'Altyazı verisi bulunamadı' });
         }
 
         console.log('🎨 Gönderilen stil ayarları:');
-        console.log(`   Font Boyutu: ${options?.fontSize || 28}, Dikey Konum: ${options?.marginV || 120}, İtalik: ${options?.italic || false}`);
-        console.log(`   Metin Genişliği: ${options?.maxWidth || 80}%, Kenar Boşluğu: ${options?.marginH || 20}px, Satır Arası: ${options?.lineSpacing || 5}px`);
-        console.log(`   Hizalama: ${options?.textAlign || 'center'}, Gölge: ${options?.shadow !== false}, Kontur: ${options?.outline !== false}`);
-        console.log(`   Arka Plan: ${options?.backgroundColor || 'black'}@${options?.backgroundOpacity || 0.5}`);
-        console.log(`   Konuşmacı Renkleri: ${JSON.stringify(options?.speakerColors || {})}`);
-
-        const result = await burnSubtitles(req.file.buffer, subtitlesData, options);
+        console.log(`   Font Ailesi: ${style.fontFamily}, Boyut: ${style.fontSize}, Dikey Konum: ${style.verticalPosition}`);
+        
+        // burnSubtitles fonksiyonuna dosya yolunu gönder
+        const result = await burnSubtitles(inputPath, subtitlesData, style, colors);
         
         console.log('✅ Video yeniden işleme tamamlandı');
         console.log(`📊 İşlem logları: ${result.logs.length} adet`);
                 
-                res.json({ 
-                    success: true, 
+        res.json({ 
+            success: true, 
             message: 'Video başarıyla yeniden işlendi',
             filename: result.filename,
             logs: result.logs,
             videoBuffer: result.outputBuffer.toString('base64')
         });
 
-    } catch (error) {
-        console.error('❌ Reprocess hatası:', error.message);
-        console.error(`[${new Date().toISOString()}] [error] Reprocess hatası:`, error);
+    } catch (err) {
+        const error = err.error || err; // Hata objesini normalleştir
+        console.error(`[${new Date().toISOString()}] [error] Reprocess hatası:`, error.message);
         
         res.status(500).json({ 
             success: false, 
-            error: error.message || 'Video yeniden işlenirken hata oluştu',
-            logs: error.logs || []
+            message: error.message || 'Video yeniden işlenirken hata oluştu',
+            logs: err.logs || ['İç sunucu hatası.']
         });
+    } finally {
+        // Geçici yüklenen video dosyasını temizle
+        if (inputPath && fs.existsSync(inputPath)) {
+            try {
+                fs.unlinkSync(inputPath);
+                console.log('🗑️ Geçici input dosyası temizlendi:', inputPath);
+            } catch (e) {
+                console.error('⚠️ Geçici input dosyasını temizleme hatası:', e.message);
+            }
+        }
     }
 });
 

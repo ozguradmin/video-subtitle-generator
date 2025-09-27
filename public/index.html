@@ -415,8 +415,8 @@
             
             // Style Settings
             styleSettings: {
-                fontSize: 28,
-                marginV: 120,
+                fontSize: 44,
+                marginV: 255,
                 extendDuration: 0.5,
                 italic: false,
                 speakerColors: {}, // Başlangıçta boş, dinamik dolacak
@@ -592,7 +592,7 @@
                     
                     // Altyazıları işle
                     if (result.subtitles && result.subtitles.subtitles) {
-                        this.currentSubtitles = result.subtitles.subtitles.map(s => ({
+                        this.subtitles = result.subtitles.subtitles.map(s => ({
                             ...s, 
                             startTime: s.startTime.toFixed(3), 
                             endTime: s.endTime.toFixed(3),
@@ -600,7 +600,7 @@
                         }));
                     } else {
                         // Fallback: boş altyazı listesi
-                        this.currentSubtitles = [];
+                        this.subtitles = [];
                     }
                     
                     this.activeSubtitleIndex = 0;
@@ -640,38 +640,18 @@
                     endTime: parseFloat(s.endTime)
                 }));
                 formData.append('subtitles', JSON.stringify({ subtitles: subtitlesToProcess }));
-                
-                formData.append('fontSize', this.styleSettings.fontSize);
-                formData.append('marginV', this.styleSettings.marginV);
-                formData.append('italic', this.styleSettings.italic);
+                formData.append('selectedStyle', JSON.stringify(this.styleSettings));
                 formData.append('speakerColors', JSON.stringify(this.styleSettings.speakerColors));
-                formData.append('fontFamily', this.styleSettings.fontFamily);
-                
-                // Yeni ayarlar
-                formData.append('maxWidth', this.styleSettings.maxWidth);
-                formData.append('marginH', this.styleSettings.marginH);
-                formData.append('lineSpacing', this.styleSettings.lineSpacing);
-                formData.append('textAlign', this.styleSettings.textAlign);
-                formData.append('shadow', this.styleSettings.shadow);
-                formData.append('outline', this.styleSettings.outline);
-                formData.append('outlineWidth', this.styleSettings.outlineWidth);
-                formData.append('shadowOffset', this.styleSettings.shadowOffset);
-                formData.append('backgroundColor', this.styleSettings.backgroundColor);
-                formData.append('backgroundOpacity', this.styleSettings.backgroundOpacity);
-                
+
                 // Debug logları
                 this.addLog(`🎨 Gönderilen stil ayarları:`);
                 this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}, Dikey Konum: ${this.styleSettings.marginV}, İtalik: ${this.styleSettings.italic}`);
                 this.addLog(`   Metin Genişliği: ${this.styleSettings.maxWidth}%, Kenar Boşluğu: ${this.styleSettings.marginH}px, Satır Arası: ${this.styleSettings.lineSpacing}px`);
                 this.addLog(`   Hizalama: ${this.styleSettings.textAlign}, Gölge: ${this.styleSettings.shadow}, Kontur: ${this.styleSettings.outline}`);
-                this.addLog(`   Arka Plan: ${this.styleSettings.backgroundColor}@${this.styleSettings.backgroundOpacity}`);
+                
+                const background = this.styleSettings.backgroundColor + '@' + this.styleSettings.backgroundOpacity;
+                this.addLog(`   Arka Plan: ${background}`);
                 this.addLog(`   Konuşmacı Renkleri: ${JSON.stringify(this.styleSettings.speakerColors)}`);
-
-                const fontInput = document.getElementById('font-upload');
-                if (fontInput.files[0]) {
-                    formData.append('font', fontInput.files[0]);
-                    this.addLog('📁 Özel font dosyası yüklendi');
-                }
 
                 try {
                     const response = await fetch('/api/reprocess', { 
