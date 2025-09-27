@@ -259,9 +259,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 // Hex renk formatını FFmpeg formatına çevir
                 const ffmpegColor = hexToDrawtext(color);
                 
-                // Metin genişliği hesapla (piksel cinsinden)
-                const textWidth = Math.floor((1080 * maxWidth) / 100) - (marginH * 2);
-                
                 // Hizalama pozisyonu hesapla
                 let xPosition;
                 if (textAlign === 'left') {
@@ -286,10 +283,10 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     effects += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
                 
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Genişlik: ${textWidth}px`);
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:w=${textWidth}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
