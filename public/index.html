@@ -233,7 +233,7 @@
                                     <option value="Roboto">Roboto</option>
                                     <option value="Avenir">Avenir LT Std Medium TR Bold Italic TR</option>
                                 </select>
-                            </div>
+                </div>
             </div>
         </div>
 
@@ -415,8 +415,8 @@
             
             // Style Settings
             styleSettings: {
-                fontSize: 72,
-                marginV: 350,
+                fontSize: 48,
+                marginV: 200,
                 extendDuration: 0.5,
                 italic: false,
                 speakerColors: {}, // Başlangıçta boş, dinamik dolacak
@@ -674,7 +674,11 @@
                 }
 
                 try {
-                    const response = await fetch('/api/reprocess', { method: 'POST', body: formData });
+                    const response = await fetch('/api/reprocess', { 
+                        method: 'POST', 
+                        body: formData,
+                        signal: AbortSignal.timeout(600000) // 10 dakika timeout
+                    });
                     const result = await response.json();
                     
                     // Logları anlık olarak güncelle

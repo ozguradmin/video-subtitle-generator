@@ -192,8 +192,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
-        fontSize = 72, 
-        marginV = 350, 
+        fontSize = 48, 
+        marginV = 200, 
         italic = false, 
         speakerColors = {},
         fontFamily = 'Roboto',
@@ -231,8 +231,10 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 // Avenir fontunu base64'ten oku
                 const avenirPath = path.join(__dirname, '..', 'Avenir LT Std Medium TR Bold Italic TR.otf');
                 if (fs.existsSync(avenirPath)) {
+                    logs.push('📁 Avenir fontu bulundu, yükleniyor...');
                     fontBase64 = fs.readFileSync(avenirPath).toString('base64');
                     fontExtension = 'otf';
+                    logs.push(`✅ Avenir fontu yüklendi (${Math.round(fontBase64.length / 1024)}KB)`);
                 } else {
                     // Fallback olarak Roboto kullan
                     fontBase64 = robotoFontBase64;
@@ -243,6 +245,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 // Roboto fontu
                 fontBase64 = robotoFontBase64;
                 fontExtension = 'ttf';
+                logs.push('📁 Roboto fontu kullanılıyor');
             }
             
             currentFontPath = path.join(tempDir, `font_${uniqueId}.${fontExtension}`);
@@ -319,9 +322,17 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
 
             command
                 .output(outputPath)
+                .outputOptions([
+                    '-c:v', 'libx264',
+                    '-preset', 'fast',
+                    '-crf', '23',
+                    '-c:a', 'aac',
+                    '-b:a', '128k'
+                ])
                 .on('start', (commandLine) => {
                     logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
                     logs.push(commandLine);
+                    logs.push('⏱️ İşlem başladı, lütfen bekleyin...');
                 })
                 .on('progress', (progress) => {
                     if (progress.percent) {
@@ -485,10 +496,16 @@ module.exports = async (req, res) => {
                     return res.status(400).json({ success: false, message: 'Video dosyası gereklidir', logs });
                 }
 
+                logs.push('Altyazı yakma işlemi başlıyor...');
+                logs.push(`📊 İşlenen altyazı sayısı: ${subtitlesData.length}`);
+                logs.push(`🎨 Font seçimi: ${fontFamily || 'Roboto'}`);
+                logs.push(`📏 Font boyutu: ${fontSize || 48}`);
+                logs.push(`📍 Dikey konum: ${marginV || 200}`);
+                
                 const burnResult = await burnSubtitles(videoBuffer, subtitlesData, {
                     fontFile: req.files.font ? req.files.font[0] : null,
-                    fontSize: parseInt(fontSize) || 72,
-                    marginV: parseInt(marginV) || 350,
+                    fontSize: parseInt(fontSize) || 48,
+                    marginV: parseInt(marginV) || 200,
                     italic: italic === 'true' || italic === true,
                     speakerColors: speakerColorsData,
                     fontFamily: fontFamily || 'Roboto',
