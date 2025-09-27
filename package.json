@@ -19,6 +19,7 @@
   "license": "MIT",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",

@@ -17,7 +17,9 @@ const fontPaths = {
 
 // FFmpeg path'ini ayarla
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const ffprobePath = require('@ffprobe-installer/ffprobe').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath);
 
 // Multer konfigürasyonu - Geçici dosyaya kaydet
 const storage = multer.diskStorage({
