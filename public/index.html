@@ -198,6 +198,11 @@
         </div>
                     <div class="flex items-center justify-between">
                         <button @click="prevSubtitle()" :disabled="activeSubtitleIndex === 0" class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 disabled:opacity-50"><span class="material-symbols-outlined">chevron_left</span></button>
+                        
+                        <button @click="addNewSubtitle()" class="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20 text-green-500 hover:bg-green-500/30">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+
                         <div class="flex items-center gap-2">
                              <template x-for="(sub, index) in currentSubtitles.slice(Math.max(0, activeSubtitleIndex-2), Math.min(currentSubtitles.length, activeSubtitleIndex+3))">
                                 <button @click="activeSubtitleIndex = currentSubtitles.indexOf(sub)" class="h-2.5 w-2.5 rounded-full" :class="currentSubtitles.indexOf(sub) === activeSubtitleIndex ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'"></button>
@@ -751,7 +756,29 @@
 
             removeSubtitle(index) {
                 this.currentSubtitles.splice(index, 1);
+                // Eğer silinen altyazı son altyazı ise ve index 0'dan büyükse, bir öncekine git
+                if (this.activeSubtitleIndex >= this.currentSubtitles.length && this.activeSubtitleIndex > 0) {
+                    this.activeSubtitleIndex--;
+                }
                 this.recordHistory(); // History'i güncelle
+            },
+
+            addNewSubtitle() {
+                const lastSubtitle = this.currentSubtitles[this.currentSubtitles.length - 1];
+                const newStartTime = lastSubtitle ? parseFloat(lastSubtitle.endTime) + 0.1 : 0;
+                const newEndTime = newStartTime + 2.0;
+
+                const newSubtitle = {
+                    speaker: lastSubtitle ? lastSubtitle.speaker : 'Konuşmacı 1',
+                    startTime: newStartTime.toFixed(3),
+                    endTime: newEndTime.toFixed(3),
+                    line: 'Yeni altyazı...',
+                    overrideColor: ''
+                };
+
+                this.currentSubtitles.push(newSubtitle);
+                this.activeSubtitleIndex = this.currentSubtitles.length - 1;
+                this.recordHistory();
             }
         }
     }
