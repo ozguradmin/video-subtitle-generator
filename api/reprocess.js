@@ -99,22 +99,15 @@ function escapeTextForFfmpeg(text) {
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     const { 
-        fontFile = null, 
-        fontSize = 28, 
-        marginV = 120, 
-        italic = false, 
-        speakerColors = {},
         fontFamily = 'Roboto',
-        maxWidth = 80,
-        marginH = 20,
+        fontSize = 44,
+        verticalPosition = 255,
+        italic = false,
+        reelsWidth = 80,
+        reelsMargin = 20,
         lineSpacing = 5,
         textAlign = 'center',
-        shadow = true,
-        outline = true,
-        outlineWidth = 2,
-        shadowOffset = 2,
-        backgroundColor = 'black',
-        backgroundOpacity = 0.5
+        effects = { shadow: true, outline: true, background: 'black@0.5' }
     } = options;
     
     const logs = [];
@@ -139,10 +132,14 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             
             logs.push(`📁 ${fontFamily} fontu kullanılıyor: ${fontPath}`);
             logs.push('🔵 MODE: drawtext (doğrudan font dosyası ile)');
-            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
-            logs.push(`📐 Reels Ayarları: Genişlik=${maxWidth}%, Kenar=${marginH}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
-            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${backgroundColor}@${backgroundOpacity}`);
-            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
+            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${verticalPosition}, İtalik=${italic}`);
+            logs.push(`📐 Reels Ayarları: Genişlik=${reelsWidth}%, Kenar=${reelsMargin}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
+            
+            const shadow = effects.shadow !== false;
+            const outline = effects.outline !== false;
+            const background = effects.background || 'black@0.5';
+            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${background}`);
+            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(options.speakerColors || {})}`);
 
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
@@ -154,8 +151,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 let color = 'white';
                 if (sub.overrideColor) {
                     color = sub.overrideColor;
-                } else if (speakerColors[sub.speaker]) {
-                    color = speakerColors[sub.speaker];
+                } else if (options.speakerColors && options.speakerColors[sub.speaker]) {
+                    color = options.speakerColors[sub.speaker];
                 } else {
                     // Varsayılan renk paleti
                     const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
@@ -169,34 +166,37 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 // Hizalama pozisyonu hesapla
                 let xPosition;
                 if (textAlign === 'left') {
-                    xPosition = marginH;
+                    xPosition = reelsMargin;
                 } else if (textAlign === 'right') {
-                    xPosition = `w-${marginH}-text_w`;
+                    xPosition = `w-${reelsMargin}-text_w`;
                 } else { // center
                     xPosition = `(w-text_w)/2`;
                 }
                 
                 // Arka plan rengi ve şeffaflığı
-                const bgColor = hexToDrawtext(backgroundColor);
-                const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
+                const [bgColorName, bgOpacityValue] = (background || 'black@0.5').split('@');
+                const bgColor = hexToDrawtext(bgColorName);
+                const bgOpacity = Math.round((parseFloat(bgOpacityValue) || 0.5) * 255).toString(16).padStart(2, '0');
                 const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
                 
                 // Gölge ve kontur efektleri
-                let effects = '';
+                let effectsStr = '';
                 if (shadow) {
-                    effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
+                    const shadowOffset = effects.shadowOffset || 2;
+                    effectsStr += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
                 }
                 if (outline) {
-                    effects += `:borderw=${outlineWidth}:bordercolor=black`;
+                    const outlineWidth = effects.outlineWidth || 2;
+                    effectsStr += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
                 
                 // Metin sarmalama için genişlik hesapla
-                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
+                const textWidth = `w*${reelsWidth}/100-${reelsMargin*2}`;
                 
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${verticalPosition} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${verticalPosition}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effectsStr}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
