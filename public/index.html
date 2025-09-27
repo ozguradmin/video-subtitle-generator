@@ -582,11 +582,11 @@
                     this.updateStatus('Başarıyla tamamlandı!', 'success');
                     
                     // Vercel API'den gelen veriyi işle
-                    if (result.videoData) {
+                    if (result.videoBuffer) {
                         // Base64 video data'sını blob URL'e çevir
-                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: 'video/mp4' });
+                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoBuffer), c => c.charCodeAt(0))], { type: 'video/mp4' });
                         this.videoPreviewUrl = URL.createObjectURL(videoBlob);
-                    } else {
+                    } else if (result.downloadUrl) {
                         this.videoPreviewUrl = result.downloadUrl;
                     }
                     
@@ -693,11 +693,11 @@
                     this.updateStatus('Değişiklikler başarıyla uygulandı!', 'success');
                     
                     // Vercel API'den gelen veriyi işle
-                    if (result.videoData) {
+                    if (result.videoBuffer) {
                         // Base64 video data'sını blob URL'e çevir
-                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoData), c => c.charCodeAt(0))], { type: 'video/mp4' });
+                        const videoBlob = new Blob([Uint8Array.from(atob(result.videoBuffer), c => c.charCodeAt(0))], { type: 'video/mp4' });
                         this.videoPreviewUrl = URL.createObjectURL(videoBlob);
-                                } else {
+                    } else if (result.downloadUrl) {
                         this.videoPreviewUrl = result.downloadUrl + `?t=${new Date().getTime()}`; // Cache bust
                     }
                     
