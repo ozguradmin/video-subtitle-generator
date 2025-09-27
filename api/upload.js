@@ -130,37 +130,14 @@ function formatTime(totalSeconds) {
 
 function hexToDrawtext(hex) {
     if (!hex) return 'white';
-    
-    // Renk isimlerini hex'e çevir
-    const colorMap = {
-        'yellow': '0xFFFF00',
-        'white': '0xFFFFFF', 
-        'cyan': '0x00FFFF',
-        'magenta': '0xFF00FF',
-        'green': '0x00FF00',
-        'red': '0xFF0000',
-        'blue': '0x0000FF',
-        'black': '0x000000'
-    };
-    
-    if (colorMap[hex.toLowerCase()]) {
-        return colorMap[hex.toLowerCase()];
-    }
-    
-    // ASS formatındaki &HBBGGRR& formatını destekler
+    // ASS formatındaki &HBBGGRR& formatını veya #RRGGBB formatını destekler
     if (hex.startsWith('&H')) {
         const b = hex.substring(2, 4);
         const g = hex.substring(4, 6);
         const r = hex.substring(6, 8);
         return `0x${r}${g}${b}`;
     }
-    
-    // #RRGGBB formatını destekler
-    if (hex.startsWith('#')) {
-        return `0x${hex.substring(1).toUpperCase()}`;
-    }
-    
-    return '0xFFFFFF'; // Varsayılan beyaz
+    return `0x${hex.substring(1)}`;
 }
 
 function convertToAss(subtitlesData, options = {}) {
@@ -198,7 +175,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         italic = false, 
         speakerColors = {},
         maxWidth = 80,
-        marginH = 10,
+        marginH = 20,
         lineSpacing = 5,
         textAlign = 'center',
         shadow = true,
@@ -279,6 +256,9 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 if (outline) {
                     effects += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
+                
+                // Metin sarmalama için genişlik hesapla
+                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
                 
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
@@ -425,7 +405,17 @@ module.exports = async (req, res) => {
                     fontSize: 16,
                     marginV: 80,
                     italic: false,
-                    speakerColors: {}
+                    speakerColors: {},
+                    maxWidth: 80,
+                    marginH: 20,
+                    lineSpacing: 5,
+                    textAlign: 'center',
+                    shadow: true,
+                    outline: true,
+                    outlineWidth: 2,
+                    shadowOffset: 2,
+                    backgroundColor: 'black',
+                    backgroundOpacity: 0.5
                 });
                 logs.push('✅ Video işleme tamamlandı.');
 

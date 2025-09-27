@@ -201,7 +201,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         italic = false, 
         speakerColors = {},
         maxWidth = 80,
-        marginH = 10,
+        marginH = 20,
         lineSpacing = 5,
         textAlign = 'center',
         shadow = true,
@@ -282,6 +282,9 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 if (outline) {
                     effects += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
+                
+                // Metin sarmalama için genişlik hesapla
+                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
                 
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
@@ -470,7 +473,7 @@ module.exports = async (req, res) => {
                     italic: italic === 'true' || italic === true,
                     speakerColors: speakerColorsData,
                     maxWidth: parseInt(maxWidth) || 80,
-                    marginH: parseInt(marginH) || 10,
+                    marginH: parseInt(marginH) || 20,
                     lineSpacing: parseInt(lineSpacing) || 5,
                     textAlign: textAlign || 'center',
                     shadow: shadow === 'true' || shadow === true,
