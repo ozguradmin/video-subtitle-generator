@@ -147,7 +147,14 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
             let drawtextFilters = [];
-            subtitlesData.subtitles.forEach((sub, index) => {
+            
+            // Altyazı kontrolü
+            if (!subtitlesData.subtitles || !Array.isArray(subtitlesData.subtitles) || subtitlesData.subtitles.length === 0) {
+                logs.push('⚠️ Altyazı bulunamadı, sadece video resize yapılıyor');
+            } else {
+                logs.push(`📝 ${subtitlesData.subtitles.length} adet altyazı işleniyor...`);
+                
+                subtitlesData.subtitles.forEach((sub, index) => {
                 const text = escapeTextForFfmpeg(sub.line);
                 
                 // Renk belirleme: overrideColor > speakerColors > varsayılan
@@ -198,7 +205,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 drawtextFilters.push(
                     `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
-            });
+                });
+            }
 
             // Eğer altyazı yoksa sadece video resize yap
             let fullFilter;
@@ -269,7 +277,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                         resolve({ 
                             outputBuffer, 
                             logs,
-                            filename: outputFilename
+                            filename: outputFilename,
+                            subtitles: subtitlesData // Altyazıları da döndür
                         });
                     } catch (e) {
                         logs.push(`❌ Output dosya okuma hatası: ${e.message}`);
@@ -347,11 +356,12 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
                 
                 res.json({ 
                     success: true, 
-            message: 'Video başarıyla yeniden işlendi',
-            filename: result.filename,
-            logs: result.logs,
-            videoBuffer: result.outputBuffer.toString('base64')
-        });
+                    message: 'Video başarıyla yeniden işlendi',
+                    filename: result.filename,
+                    logs: result.logs,
+                    videoBuffer: result.outputBuffer.toString('base64'),
+                    subtitles: result.subtitles // Altyazıları da döndür
+                });
 
     } catch (err) {
         const error = err.error || err; // Hata objesini normalleştir

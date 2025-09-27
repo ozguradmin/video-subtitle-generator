@@ -147,9 +147,18 @@
                     </button>
                 </div>
             </header>
-            <main class="flex-1 overflow-y-auto p-4" x-show="currentSubtitles.length > 0">
+            <main class="flex-1 overflow-y-auto p-4">
                 <div class="space-y-6">
-                    <div class="rounded-lg border border-primary/50 bg-background-light/50 p-4 shadow-lg ring-1 ring-primary/20 dark:bg-background-dark/50"
+                    <!-- Altyazı yoksa mesaj göster -->
+                    <div x-show="currentSubtitles.length === 0" class="text-center py-8">
+                        <div class="text-gray-500 dark:text-gray-400">
+                            <span class="material-symbols-outlined text-4xl mb-2 block">subtitles_off</span>
+                            <p>Henüz altyazı yüklenmedi. Lütfen önce bir video yükleyin.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Altyazı editörü -->
+                    <div x-show="currentSubtitles.length > 0" class="rounded-lg border border-primary/50 bg-background-light/50 p-4 shadow-lg ring-1 ring-primary/20 dark:bg-background-dark/50"
                          @input="recordHistory()">
                         <div class="mb-3 flex items-center justify-between">
                              <div class="flex items-center gap-3">
@@ -679,6 +688,16 @@
                         this.videoPreviewUrl = URL.createObjectURL(videoBlob);
                     } else if (result.downloadUrl) {
                         this.videoPreviewUrl = result.downloadUrl + `?t=${new Date().getTime()}`; // Cache bust
+                    }
+                    
+                    // Altyazıları güncelle (eğer backend'den döndüyse)
+                    if (result.subtitles && result.subtitles.subtitles) {
+                        this.currentSubtitles = result.subtitles.subtitles.map(s => ({
+                            ...s, 
+                            startTime: s.startTime.toFixed(3), 
+                            endTime: s.endTime.toFixed(3),
+                            overrideColor: ''
+                        }));
                     }
                     
                     this.currentScreen = 'preview';
