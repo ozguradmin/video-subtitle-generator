@@ -349,8 +349,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
         // Stil ayarları
         const selectedStyle = {
-                    fontSize: 28,
-                    marginV: 120,
+                    fontSize: 44,
+                    marginV: 255,
                     italic: false,
                     fontFamily: 'Roboto',
                     maxWidth: 80,
@@ -381,7 +381,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
             message: 'Video başarıyla işlendi',
             filename: result.filename,
             logs: result.logs,
-            videoBuffer: result.outputBuffer.toString('base64')
+            videoBuffer: result.outputBuffer.toString('base64'),
+            subtitles: { subtitles: subtitles } // Oluşturulan altyazıları ekle
         });
 
     } catch (error) {
