@@ -118,111 +118,64 @@ function escapeTextForFfmpeg(text) {
 
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors) {
-    const { 
-        fontSize = 50, 
-        marginV = 300, 
-        italic = false, 
-        fontFamily = 'Roboto',
-        maxWidth = 80,
-        marginH = 20,
-        lineSpacing = 5,
-        textAlign = 'center',
-        shadow = true,
-        outline = true,
-        outlineWidth = 2,
-        shadowOffset = 2,
-        backgroundColor = 'black',
-        backgroundOpacity = 0.5
-    } = selectedStyle;
-
-    const logs = [];
-    const tempDir = os.tmpdir();
-    const uniqueId = uuidv4();
-    const inputPath = videoPath;
-    const outputFilename = `subtitled_video_${Date.now()}.mp4`;
-    const outputPath = path.join(tempDir, outputFilename);
-
-    return new Promise((resolve, reject) => {
-        let command;
-        let assPath = null; // drawtext kullandığımız için artık assPath'e gerek yok
-
+    return new Promise(async (resolve, reject) => {
+        const logs = [];
         try {
-            // Font dosyasını kontrol et
-            const fontPath = fontPaths[fontFamily];
-            if (!fontPath || !fs.existsSync(fontPath)) {
-                throw new Error(`Font dosyası bulunamadı: ${fontFamily} (${fontPath})`);
-            }
-            
-            logs.push(`📁 ${fontFamily} fontu kullanılıyor: ${fontPath}`);
-            logs.push('🔵 MODE: drawtext (doğrudan font dosyası ile)');
-            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
-            logs.push(`📐 Reels Ayarları: Genişlik=${maxWidth}%, Kenar=${marginH}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
-            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${backgroundColor}@${backgroundOpacity}`);
-            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
+            const { 
+                fontSize = 50, 
+                marginV = 300, 
+                italic = false, 
+                fontFamily = 'Roboto',
+                maxWidth = 80,
+                marginH = 20,
+                lineSpacing = 5,
+                textAlign = 'center',
+                shadow = true,
+                outline = true,
+                outlineWidth = 2,
+                shadowOffset = 2,
+                backgroundColor = 'black',
+                backgroundOpacity = 0.5,
+                animationStyle = 'none' // Animasyon stili eklendi
+            } = selectedStyle;
 
-            const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+            const fontFile = fontPaths[fontFamily] || fontPaths['Roboto'];
+            logs.push(`📁 ${fontFamily} fontu kullanılıyor: ${fontFile}`);
+
+            let complexFilter = `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black`;
             
-            let drawtextFilters = [];
             subtitles.forEach((sub, index) => {
-                const text = escapeTextForFfmpeg(sub.line);
+                const speaker = sub.speaker || 'Konuşmacı 1';
+                const color = speakerColors[speaker] || 'yellow'; // Varsayılan sarı
+                const fontColor = `0x${color.replace('#', '')}`;
                 
-                // Renk belirleme: overrideColor > speakerColors > varsayılan
-                let color = 'white';
-                if (sub.overrideColor) {
-                    color = sub.overrideColor;
-                } else if (speakerColors[sub.speaker]) {
-                    color = speakerColors[sub.speaker];
-                } else {
-                    // Varsayılan renk paleti
-                    const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
-                    const speakerIndex = parseInt(sub.speaker.replace(/\D/g, '')) - 1;
-                    color = defaultColors[speakerIndex] || 'yellow';
-                }
-                
-                // Hex renk formatını FFmpeg formatına çevir
-                const ffmpegColor = hexToDrawtext(color);
-                
-                // Hizalama pozisyonu hesapla
-                let xPosition;
-                if (textAlign === 'left') {
-                    xPosition = marginH;
-                } else if (textAlign === 'right') {
-                    xPosition = `w-${marginH}-text_w`;
-                } else { // center
-                    xPosition = `(w-text_w)/2`;
-                }
-                
-                // Arka plan rengi ve şeffaflığı
-                const bgColor = hexToDrawtext(backgroundColor);
-                const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
-                const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
-                
-                // Gölge ve kontur efektleri
-                let effects = '';
+                const escapedLine = escapeTextForFfmpeg(sub.line);
+                let drawtextFilter = `drawtext=text='${escapedLine}':fontfile='${fontFile}':fontsize=${fontSize}:fontcolor=${fontColor}:x=(w-text_w)/2:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${backgroundColor}@${backgroundOpacity}:boxborderw=5`;
+
                 if (shadow) {
-                    effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
+                    drawtextFilter += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
                 }
                 if (outline) {
-                    effects += `:borderw=${outlineWidth}:bordercolor=black`;
+                    drawtextFilter += `:borderw=${outlineWidth}:bordercolor=black`;
                 }
                 
-                // Metin sarmalama için genişlik hesapla
-                const textWidth = `w*${maxWidth}/100-${marginH*2}`;
-                
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
-                
-                drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
-                );
+                if (animationStyle === 'fadeIn') {
+                    const fadeInDuration = 0.5; // saniye
+                    drawtextFilter += `:alpha='if(lt(t,${sub.startTime}),0,if(lt(t,${sub.startTime}+${fadeInDuration}),(t-${sub.startTime})/${fadeInDuration},if(lt(t,${sub.endTime}),1,0)))'`;
+                } else {
+                    drawtextFilter += `:enable='between(t,${sub.startTime},${sub.endTime})'`;
+                }
+
+                complexFilter += `,${drawtextFilter}`;
             });
 
-            const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
-            logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
+            const outputFilename = `subtitled_video_${Date.now()}.mp4`;
+            const outputPath = path.join(os.tmpdir(), outputFilename);
 
-            command = ffmpeg(inputPath)
-                .videoFilter(fullFilter);
+            logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${complexFilter.substring(0, 200)}...`);
 
-            command
+            ffmpeg(videoPath)
+                .videoFilter(complexFilter)
                 .output(outputPath)
                 .outputOptions([
                     '-c:v', 'libx264',
@@ -267,7 +220,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
                         
                         // Temp dosyaları temizle
                         try {
-                            fs.unlinkSync(inputPath);
+                            fs.unlinkSync(videoPath);
                             fs.unlinkSync(outputPath);
                             logs.push('🗑️ Temp dosyalar temizlendi');
                         } catch (e) {
@@ -300,7 +253,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
                     
                     // Temp dosyaları temizle
                     try {
-                        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+                        if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
                         logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
@@ -310,7 +263,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
                     reject({ error: err, logs });
                 });
             
-            command.run();
+            ffmpeg.run(videoPath, complexFilter, outputPath);
 
         } catch (error) {
             logs.push(`❌ Altyazı hazırlığında hata: ${error.message}`);
