@@ -193,8 +193,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
-        fontSize = 36, 
-        marginV = 150, 
+        fontSize = 28, 
+        marginV = 120, 
         italic = false, 
         speakerColors = {},
         fontFamily = 'Roboto',
@@ -231,16 +231,26 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             if (fontFamily === 'Avenir') {
                 // Avenir fontunu base64'ten oku
                 const avenirPath = path.join(__dirname, '..', 'Avenir LT Std Medium TR Bold Italic TR.otf');
+                logs.push(`🔍 Avenir fontu aranıyor: ${avenirPath}`);
+                
                 if (fs.existsSync(avenirPath)) {
                     logs.push('📁 Avenir fontu bulundu, yükleniyor...');
-                    fontBase64 = fs.readFileSync(avenirPath).toString('base64');
-                    fontExtension = 'otf';
-                    logs.push(`✅ Avenir fontu yüklendi (${Math.round(fontBase64.length / 1024)}KB)`);
+                    try {
+                        fontBase64 = fs.readFileSync(avenirPath).toString('base64');
+                        fontExtension = 'otf';
+                        logs.push(`✅ Avenir fontu yüklendi (${Math.round(fontBase64.length / 1024)}KB)`);
+                    } catch (readError) {
+                        logs.push(`❌ Avenir fontu okunamadı: ${readError.message}`);
+                        logs.push('⚠️ Roboto fontuna geçiliyor...');
+                        fontBase64 = robotoFontBase64;
+                        fontExtension = 'ttf';
+                    }
                 } else {
                     // Fallback olarak Roboto kullan
                     fontBase64 = robotoFontBase64;
                     fontExtension = 'ttf';
                     logs.push('⚠️ Avenir fontu bulunamadı, Roboto kullanılıyor');
+                    logs.push(`📂 Mevcut dosyalar: ${fs.readdirSync(path.join(__dirname, '..')).join(', ')}`);
                 }
             } else {
                 // Roboto fontu
@@ -325,10 +335,11 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 .output(outputPath)
                 .outputOptions([
                     '-c:v', 'libx264',
-                    '-preset', 'fast',
-                    '-crf', '23',
+                    '-preset', 'ultrafast',
+                    '-crf', '28',
                     '-c:a', 'aac',
-                    '-b:a', '128k'
+                    '-b:a', '96k',
+                    '-movflags', '+faststart'
                 ])
                 .on('start', (commandLine) => {
                     logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
@@ -458,8 +469,8 @@ module.exports = async (req, res) => {
                 
                 logs.push('Altyazı yakma işlemi başlıyor...');
                 const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
-                    fontSize: 36,
-                    marginV: 150,
+                    fontSize: 28,
+                    marginV: 120,
                     italic: false,
                     speakerColors: {},
                     fontFamily: 'Roboto',
