@@ -154,7 +154,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             } else {
                 logs.push(`📝 ${subtitlesData.subtitles.length} adet altyazı işleniyor...`);
                 
-                subtitlesData.subtitles.forEach((sub, index) => {
+            subtitlesData.subtitles.forEach((sub, index) => {
                 const text = escapeTextForFfmpeg(sub.line);
                 
                 // Renk belirleme: overrideColor > speakerColors > varsayılan
@@ -205,7 +205,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 drawtextFilters.push(
                     `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
-                });
+            });
             }
 
             // Eğer altyazı yoksa sadece video resize yap
@@ -344,6 +344,7 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
 
         console.log('🎨 Gönderilen stil ayarları:');
         console.log(`   Font Ailesi: ${style.fontFamily}, Boyut: ${style.fontSize}, Dikey Konum: ${style.marginV}`);
+        console.log('📝 Altyazı verisi:', JSON.stringify(subtitlesData, null, 2));
         
         // burnSubtitles fonksiyonuna doğru parametreleri gönder
         const result = await burnSubtitles(inputPath, subtitlesData, {
