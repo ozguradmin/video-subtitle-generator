@@ -6,7 +6,8 @@
   "scripts": {
     "build": "echo 'Build completed'",
     "dev": "node index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "postinstall": "node node_modules/@ffprobe-installer/ffprobe/download.js"
   },
   "keywords": [
     "video",
