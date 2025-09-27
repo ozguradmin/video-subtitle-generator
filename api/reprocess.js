@@ -167,7 +167,7 @@ function formatTime(totalSeconds) {
 
 
 function convertToAss(subtitlesData, options = {}) {
-    const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
+    const { fontName = 'Arial', fontSize = 16, marginV = 80, italic = false, speakerColors = {} } = options;
     
     // Çok basit ASS dosyası - font belirtmeden
     let assContent = `[Script Info]
@@ -194,7 +194,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
-    const { fontFile = null, fontSize = 12, marginV = 60, italic = false, speakerColors = {} } = options;
+    const { fontFile = null, fontSize = 16, marginV = 80, italic = false, speakerColors = {} } = options;
     const logs = [];
     const tempDir = os.tmpdir();
     const uniqueId = uuidv4();
@@ -216,6 +216,8 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             logs.push(`✅ Gömülü font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
             
             logs.push('🔵 MODE: drawtext (gömülü font ile)');
+            logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
+            logs.push(`🎨 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
 
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
@@ -247,6 +249,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             });
 
             const fullFilter = `${videoResizingFilter},${drawtextFilters.join(',')}`;
+            logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
             command = ffmpeg(inputPath)
                 .videoFilter(fullFilter);
