@@ -191,10 +191,29 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
             let drawtextFilters = [];
-            subtitlesData.subtitles.forEach((sub) => {
+            subtitlesData.subtitles.forEach((sub, index) => {
                 const text = sub.line.replace(/'/g, `\\\\\\\\\\\\''`).replace(/:/g, `\\\\\\\\:`).replace(/%/g, `\\\\\\\\%`).replace(/\\/g, `\\\\\\\\\\\\`);
+                
+                // Renk belirleme: overrideColor > speakerColors > varsayılan
+                let color = 'white';
+                if (sub.overrideColor) {
+                    color = sub.overrideColor;
+                } else if (speakerColors[sub.speaker]) {
+                    color = speakerColors[sub.speaker];
+                } else {
+                    // Varsayılan renk paleti
+                    const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
+                    const speakerIndex = parseInt(sub.speaker.replace(/\D/g, '')) - 1;
+                    color = defaultColors[speakerIndex] || 'yellow';
+                }
+                
+                // Hex renk formatını FFmpeg formatına çevir
+                const ffmpegColor = hexToDrawtext(color);
+                
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV}`);
+                
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -321,12 +340,24 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, message: 'Dosya yükleme hatası', logs });
             }
 
-            const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
-
-            if (!videoPath || !subtitles) {
-                logs.push('❌ Video yolu ve altyazı verisi gereklidir');
-                return res.status(400).json({ success: false, message: 'Video yolu ve altyazı verisi gereklidir', logs });
+            // Request body'den parametreleri al
+            const { subtitles, fontSize, marginV, italic, speakerColors } = req.body;
+            
+            // Video dosyasını kontrol et
+            if (!req.files || !req.files.video || !req.files.video[0]) {
+                logs.push('❌ Video dosyası bulunamadı');
+                return res.status(400).json({ success: false, message: 'Video dosyası gereklidir', logs });
             }
+
+            if (!subtitles) {
+                logs.push('❌ Altyazı verisi gereklidir');
+                return res.status(400).json({ success: false, message: 'Altyazı verisi gereklidir', logs });
+            }
+
+            logs.push(`📁 Video dosyası: ${req.files.video[0].originalname} (${req.files.video[0].size} bytes)`);
+            logs.push(`📝 Altyazı sayısı: ${subtitles.length}`);
+            logs.push(`🎨 Font boyutu: ${fontSize || 16}, Dikey konum: ${marginV || 80}`);
+            logs.push(`🎭 Konuşmacı renkleri: ${JSON.stringify(speakerColors || {})}`);
 
             try {
                 const subtitlesData = JSON.parse(subtitles);
@@ -344,8 +375,8 @@ module.exports = async (req, res) => {
 
                 const burnResult = await burnSubtitles(videoBuffer, subtitlesData, {
                     fontFile: req.files.font ? req.files.font[0] : null,
-                    fontSize: parseInt(fontSize) || 12,
-                    marginV: parseInt(marginV) || 60,
+                    fontSize: parseInt(fontSize) || 16,
+                    marginV: parseInt(marginV) || 80,
                     italic: italic === 'true' || italic === true,
                     speakerColors: speakerColorsData
                 });

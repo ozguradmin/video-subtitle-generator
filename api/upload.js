@@ -194,10 +194,29 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
             let drawtextFilters = [];
-            subtitlesData.subtitles.forEach((sub) => {
+            subtitlesData.subtitles.forEach((sub, index) => {
                 const text = sub.line.replace(/'/g, `\\\\\\\\\\\\''`).replace(/:/g, `\\\\\\\\:`).replace(/%/g, `\\\\\\\\%`).replace(/\\/g, `\\\\\\\\\\\\`);
+                
+                // Renk belirleme: overrideColor > speakerColors > varsayılan
+                let color = 'white';
+                if (sub.overrideColor) {
+                    color = sub.overrideColor;
+                } else if (speakerColors[sub.speaker]) {
+                    color = speakerColors[sub.speaker];
+                } else {
+                    // Varsayılan renk paleti
+                    const defaultColors = ['yellow', 'white', 'cyan', 'magenta', 'green'];
+                    const speakerIndex = parseInt(sub.speaker.replace(/\D/g, '')) - 1;
+                    color = defaultColors[speakerIndex] || 'yellow';
+                }
+                
+                // Hex renk formatını FFmpeg formatına çevir
+                const ffmpegColor = hexToDrawtext(color);
+                
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV}`);
+                
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -335,8 +354,8 @@ module.exports = async (req, res) => {
                 
                 logs.push('Altyazı yakma işlemi başlıyor...');
                 const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
-                    fontSize: 12,
-                    marginV: 60,
+                    fontSize: 16,
+                    marginV: 80,
                     italic: false,
                     speakerColors: {}
                 });
