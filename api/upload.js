@@ -16,7 +16,7 @@ const fontPaths = {
 };
 
 // FFmpeg path'ini ayarla
-const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Multer konfigürasyonu
@@ -47,21 +47,32 @@ app.use(express.json());
 function hexToDrawtext(hexColor) {
     if (!hexColor) return 'white';
     
-    // Hex renk formatını temizle
-    let hex = hexColor.replace('#', '');
+    // Özel renk isimlerini hex'e çevir
+    const colorMap = {
+        'white': 'FFFFFF',
+        'black': '000000',
+        'yellow': 'FFFF00',
+        'red': 'FF0000',
+        'green': '00FF00',
+        'blue': '0000FF',
+        'cyan': '00FFFF',
+        'magenta': 'FF00FF'
+    };
+    
+    let hex = hexColor.replace('#', '').toUpperCase();
+    
+    // Renk ismi varsa hex'e çevir
+    if (colorMap[hexColor.toLowerCase()]) {
+        hex = colorMap[hexColor.toLowerCase()];
+    }
     
     // Kısa formatı uzun formata çevir (#FFF -> #FFFFFF)
     if (hex.length === 3) {
         hex = hex.split('').map(char => char + char).join('');
     }
     
-    // RGB değerlerini çıkar
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    
     // FFmpeg drawtext formatına çevir (0xRRGGBB)
-    return `0x${hex.toUpperCase()}`;
+    return `0x${hex}`;
 }
 
 // Altyazı yakma fonksiyonu
@@ -160,7 +171,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${fontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile='${fontPath}':fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
