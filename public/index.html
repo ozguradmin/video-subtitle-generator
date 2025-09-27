@@ -742,6 +742,11 @@
                 
                 this.currentSubtitles = updatedSubs;
                 alert('Bitiş süreleri güncellendi. Değişiklikleri kalıcı hale getirmek için "Stil Değişikliklerini Uygula" butonuna tıklayın.');
+            },
+
+            removeSubtitle(index) {
+                this.currentSubtitles.splice(index, 1);
+                this.recordHistory(); // History'i güncelle
             }
         }
     }

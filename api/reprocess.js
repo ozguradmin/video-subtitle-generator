@@ -75,6 +75,19 @@ function hexToDrawtext(hexColor) {
     return `0x${hex}`;
 }
 
+// FFmpeg için metin escape etme fonksiyonu
+function escapeTextForFfmpeg(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    // Önce ters eğik çizgileri temizle, sonra özel karakterleri escape et
+    return text
+        .replace(/\\/g, '') // Mevcut ters eğik çizgileri kaldır
+        .replace(/'/g, "'\\\\\\''") // Tek tırnakları escape et
+        .replace(/:/g, '\\\\:') // İki nokta üst üste işaretini escape et
+        .replace(/%/g, '\\\\%'); // Yüzde işaretini escape et
+}
+
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { 
@@ -127,7 +140,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             
             let drawtextFilters = [];
             subtitlesData.subtitles.forEach((sub, index) => {
-                const text = sub.line.replace(/'/g, `\\\\\\\\\\\\''`).replace(/:/g, `\\\\\\\\:`).replace(/%/g, `\\\\\\\\%`).replace(/\\/g, `\\\\\\\\\\\\`);
+                const text = escapeTextForFfmpeg(sub.line);
                 
                 // Renk belirleme: overrideColor > speakerColors > varsayılan
                 let color = 'white';

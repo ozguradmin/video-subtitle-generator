@@ -16,7 +16,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 async function generateSubtitles(videoPath) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
-    const prompt = "Bu videodaki konuşmaları analiz et ve altyazıları JSON formatında, her bir altyazı için başlangıç ve bitiş zamanları (saniye cinsinden) ile birlikte oluştur. Sadece JSON çıktısı ver, başka hiçbir metin ekleme. Format şu şekilde olmalı: { \"subtitles\": [ { \"speaker\": \"Konuşmacı 1\", \"startTime\": 0.0, \"endTime\": 2.5, \"line\": \"Metin...\" } ] }";
+    const prompt = "Bu videodaki konuşmaları analiz et ve altyazıları Türkçe'ye çevirerek JSON formatında oluştur. Her bir altyazı için başlangıç ve bitiş zamanları (saniye cinsinden) ile birlikte olmalı. Sadece JSON çıktısı ver, başka hiçbir metin ekleme. Format şu şekilde olmalı: { \"subtitles\": [ { \"speaker\": \"Konuşmacı 1\", \"startTime\": 0.0, \"endTime\": 2.5, \"line\": \"Türkçe metin...\" } ] }";
     
     const videoBytes = fs.readFileSync(videoPath);
     const videoBuffer = Buffer.from(videoBytes).toString("base64");
@@ -103,6 +103,19 @@ function hexToDrawtext(hexColor) {
     return `0x${hex}`;
 }
 
+// FFmpeg için metin escape etme fonksiyonu
+function escapeTextForFfmpeg(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    // Önce ters eğik çizgileri temizle, sonra özel karakterleri escape et
+    return text
+        .replace(/\\/g, '') // Mevcut ters eğik çizgileri kaldır
+        .replace(/'/g, "'\\\\\\''") // Tek tırnakları escape et
+        .replace(/:/g, '\\\\:') // İki nokta üst üste işaretini escape et
+        .replace(/%/g, '\\\\%'); // Yüzde işaretini escape et
+}
+
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors) {
     const { 
@@ -151,7 +164,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
             
             let drawtextFilters = [];
             subtitles.forEach((sub, index) => {
-                const text = sub.line.replace(/'/g, `\\\\\\\\\\\\''`).replace(/:/g, `\\\\\\\\:`).replace(/%/g, `\\\\\\\\%`).replace(/\\/g, `\\\\\\\\\\\\`);
+                const text = escapeTextForFfmpeg(sub.line);
                 
                 // Renk belirleme: overrideColor > speakerColors > varsayılan
                 let color = 'white';
