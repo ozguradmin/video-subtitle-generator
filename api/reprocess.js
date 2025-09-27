@@ -220,47 +220,21 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     return new Promise((resolve, reject) => {
         let command;
         let assPath = null; // drawtext kullandığımız için artık assPath'e gerek yok
-        let currentFontPath = null;
 
         try {
-            // Font seçimine göre font dosyasını oluştur
+            // Font seçimine göre font verisini belirle
             let fontBase64;
-            let fontExtension;
+            let fontName;
             
             if (fontFamily === 'Avenir') {
-                // Avenir fontunu base64'ten oku
-                const avenirPath = path.join(__dirname, '..', 'Avenir LT Std Medium TR Bold Italic TR.otf');
-                logs.push(`🔍 Avenir fontu aranıyor: ${avenirPath}`);
-                
-                if (fs.existsSync(avenirPath)) {
-                    logs.push('📁 Avenir fontu bulundu, yükleniyor...');
-                    try {
-                        fontBase64 = fs.readFileSync(avenirPath).toString('base64');
-                        fontExtension = 'otf';
-                        logs.push(`✅ Avenir fontu yüklendi (${Math.round(fontBase64.length / 1024)}KB)`);
-                    } catch (readError) {
-                        logs.push(`❌ Avenir fontu okunamadı: ${readError.message}`);
-                        logs.push('⚠️ Roboto fontuna geçiliyor...');
-                        fontBase64 = robotoFontBase64;
-                        fontExtension = 'ttf';
-                    }
-                } else {
-                    // Fallback olarak Roboto kullan
-                    fontBase64 = robotoFontBase64;
-                    fontExtension = 'ttf';
-                    logs.push('⚠️ Avenir fontu bulunamadı, Roboto kullanılıyor');
-                    logs.push(`📂 Mevcut dosyalar: ${fs.readdirSync(path.join(__dirname, '..')).join(', ')}`);
-                }
+                fontBase64 = avenirFontBase64;
+                fontName = 'AvenirFont';
+                logs.push('📁 Avenir fontu kullanılıyor (bellekten)');
             } else {
-                // Roboto fontu
                 fontBase64 = robotoFontBase64;
-                fontExtension = 'ttf';
-                logs.push('📁 Roboto fontu kullanılıyor');
+                fontName = 'RobotoFont';
+                logs.push('📁 Roboto fontu kullanılıyor (bellekten)');
             }
-            
-            currentFontPath = path.join(tempDir, `font_${uniqueId}.${fontExtension}`);
-            fs.writeFileSync(currentFontPath, Buffer.from(fontBase64, 'base64'));
-            logs.push(`✅ ${fontFamily} font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
             
             logs.push('🔵 MODE: drawtext (gömülü font ile)');
             logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
@@ -320,7 +294,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':font=${fontName}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -328,6 +302,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
             command = ffmpeg(inputPath)
+                .addFont(Buffer.from(fontBase64, 'base64'), fontName)
                 .videoFilter(fullFilter);
 
             command
@@ -377,7 +352,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                         try {
                             fs.unlinkSync(inputPath);
                             fs.unlinkSync(outputPath);
-                            if (currentFontPath) fs.unlinkSync(currentFontPath);
                             logs.push('🗑️ Temp dosyalar temizlendi');
                         } catch (e) {
                             logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
@@ -411,7 +385,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        if (currentFontPath) fs.unlinkSync(currentFontPath);
                         logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
