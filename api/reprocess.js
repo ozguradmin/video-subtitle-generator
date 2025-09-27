@@ -150,141 +150,88 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     logs.push(`📁 ${fontName} fontu kullanılıyor: ${fontPath}`);
     logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
     
-    return new Promise((resolve, reject) => {
-        const outputFilename = `subtitled_${uuidv4()}.mp4`;
-        const outputPath = path.join(os.tmpdir(), outputFilename);
+    const outputFilename = `subtitled_${uuidv4()}.mp4`;
+    const outputPath = path.join(os.tmpdir(), outputFilename);
 
-        const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
-        
-        const allDrawtextFilters = [];
+    const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+    
+    const allDrawtextFilters = [];
 
-        if (!subtitlesData.subtitles || !Array.isArray(subtitlesData.subtitles) || subtitlesData.subtitles.length === 0) {
-            logs.push('⚠️ Altyazı bulunamadı, sadece video resize yapılıyor');
-        } else {
-            logs.push(`📝 ${subtitlesData.subtitles.length} adet altyazı işleniyor...`);
-            subtitlesData.subtitles.forEach((sub) => {
-                const maxChars = Math.floor((50 / fontSize) * 25); // Daha hassas metin sarma
-                const lines = wrapText(sub.line, maxChars).split('\\n');
-                const numLines = lines.length;
-                
-                const start = Math.max(0, Number(sub.startTime) || 0);
-                const end = Math.max(start + 0.01, Number(sub.endTime) || start + 0.01);
+    if (!subtitlesData.subtitles || !Array.isArray(subtitlesData.subtitles) || subtitlesData.subtitles.length === 0) {
+        logs.push('⚠️ Altyazı bulunamadı, sadece video resize yapılıyor');
+    } else {
+        logs.push(`📝 ${subtitlesData.subtitles.length} adet altyazı işleniyor...`);
+        subtitlesData.subtitles.forEach((sub) => {
+            const maxChars = Math.floor((50 / fontSize) * 25); // Daha hassas metin sarma
+            const lines = wrapText(sub.line, maxChars).split('\\n');
+            const numLines = lines.length;
+            
+            const start = Math.max(0, Number(sub.startTime) || 0);
+            const end = Math.max(start + 0.01, Number(sub.endTime) || start + 0.01);
 
-                let color = speakerColors[sub.speaker] || 'yellow';
-                if (sub.overrideColor) {
-                    color = sub.overrideColor;
-                }
+            let color = speakerColors[sub.speaker] || 'yellow';
+            if (sub.overrideColor) {
+                color = sub.overrideColor;
+            }
 
-                lines.forEach((line, lineIndex) => {
-                    const text = escapeTextForFfmpeg(line);
-                    if (!text) return;
+            lines.forEach((line, lineIndex) => {
+                const text = escapeTextForFfmpeg(line);
+                if (!text) return;
 
-                    const yPos = `h - ${marginV} - (${numLines - 1 - lineIndex}) * ${fontSize} * 1.2`;
+                const yPos = `h - ${marginV} - (${numLines - 1 - lineIndex}) * ${fontSize} * 1.2`;
 
-                    allDrawtextFilters.push(
-                        `drawtext=fontfile='${fontPath}':text='${text}':fontsize=${fontSize}:fontcolor=${color}:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=black@0.5:boxborderw=10:shadowcolor=black@0.8:shadowx=2:shadowy=2:borderw=2:bordercolor=black:enable='between(t,${start.toFixed(3)},${end.toFixed(3)})'`
-                    );
-                });
+                allDrawtextFilters.push(
+                    `drawtext=fontfile='${fontPath}':text='${text}':fontsize=${fontSize}:fontcolor=${color}:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=black@0.5:boxborderw=10:shadowcolor=black@0.8:shadowx=2:shadowy=2:borderw=2:bordercolor=black:enable='between(t,${start.toFixed(3)},${end.toFixed(3)})'`
+                );
             });
-        }
+        });
+    }
 
-        const finalFilter = [videoResizingFilter, ...allDrawtextFilters].join(',');
+    const finalFilter = [videoResizingFilter, ...allDrawtextFilters].join(',');
 
+    return new Promise((resolve, reject) => {
         const command = ffmpeg(videoPath)
             .videoFilter(finalFilter)
             .outputOptions([
-                    '-c:v', 'libx264',
-                    '-preset', 'ultrafast',
-                    '-crf', '28',
-                    '-c:a', 'aac',
-                    '-b:a', '96k',
-                    '-movflags', '+faststart'
-                ])
-                .on('start', (commandLine) => {
-                    logs.push('🚀 FFmpeg komutu çalıştırılıyor:');
-                    logs.push(commandLine);
-                    logs.push('⏱️ İşlem başladı, lütfen bekleyin...');
-                })
-                .on('progress', (progress) => {
-                    if (progress.percent) {
-                        logs.push(`⏳ İlerleme: %${Math.round(progress.percent)}`);
-                    }
-                    if (progress.frames) {
-                        logs.push(`🎬 İşlenen frame sayısı: ${progress.frames}`);
-                    }
-                    if (progress.currentFps) {
-                        logs.push(`📊 Mevcut FPS: ${progress.currentFps}`);
-                    }
-                })
-                .on('stderr', (stderrLine) => {
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-crf', '28',
+                '-c:a', 'aac',
+                '-b:a', '96k',
+                '-movflags', '+faststart'
+            ])
+            .on('start', (commandLine) => {
+                logs.push('🚀 FFmpeg komutu çalıştırılıyor (Yeniden İşleme):');
+                logs.push(commandLine);
+            })
+            .on('stderr', (stderrLine) => {
+                if (!stderrLine.includes('frame=') && !stderrLine.includes('size=')) {
                     logs.push(`🔍 FFmpeg stderr: ${stderrLine}`);
-                })
-                .on('stdout', (stdoutLine) => {
-                    logs.push(`📤 FFmpeg stdout: ${stdoutLine}`);
-                })
-                .on('end', () => {
-                    logs.push('✅ Altyazı yakma işlemi başarıyla tamamlandı.');
-                    
-                    // Output dosyasını kontrol et
-                    try {
-                        const outputStats = fs.statSync(outputPath);
-                        logs.push(`📁 Output dosya boyutu: ${outputStats.size} bytes`);
-                        
-                        const outputBuffer = fs.readFileSync(outputPath);
-                        logs.push(`✅ Output buffer okundu: ${outputBuffer.length} bytes`);
-                        
-                        // Temp dosyaları temizle
-                        try {
-                            // inputPath artık req.file.path olduğu için burada silinmemeli, endpoint'te silinecek
-                            fs.unlinkSync(outputPath);
-                            logs.push('🗑️ Temp output dosyası temizlendi');
-                        } catch (e) {
-                            logs.push('⚠️ Temp output dosya temizleme hatası: ' + e.message);
-                        }
-                        
-                        resolve({ 
-                            outputBuffer, 
-                            logs,
-                            filename: outputFilename,
-                            subtitles: subtitlesData // Altyazıları da döndür
-                        });
-                    } catch (e) {
-                        logs.push(`❌ Output dosya okuma hatası: ${e.message}`);
-                        reject({ error: e, logs });
-                    }
-                })
-                .on('error', (err, stdout, stderr) => {
-                    const errorMsg = '❌ FFmpeg hatası: ' + err.message;
-                    logs.push(errorMsg);
-                    logs.push('--- FFmpeg Hata Detayı (stdout) ---');
-                    logs.push(stdout || 'stdout boş');
-                    logs.push('--- FFmpeg Hata Detayı (stderr) ---');
-                    logs.push(stderr || 'stderr boş');
-                    logs.push('--- FFmpeg Error Object ---');
-                    logs.push(`Name: ${err.name}`);
-                    logs.push(`Message: ${err.message}`);
-                    logs.push(`Code: ${err.code}`);
-                    logs.push(`Signal: ${err.signal}`);
-                    logs.push('------------------------------------');
-                    
-                    // Temp dosyaları temizle
-                    try {
-                        // if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-                        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                        logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
-                    } catch (e) {
-                        logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
-                    }
-                    
-                    reject({ error: err, logs });
-                });
-            
-            command.run();
-
-        } catch (error) {
-            logs.push(`❌ Altyazı hazırlığında hata: ${error.message}`);
-            reject({ error, logs });
-        }
+                }
+            })
+            .on('end', () => {
+                logs.push('✅ Video yeniden işleme tamamlandı.');
+                try {
+                    const outputBuffer = fs.readFileSync(outputPath);
+                    fs.unlinkSync(outputPath);
+                    resolve({
+                        outputBuffer,
+                        logs,
+                        filename: outputFilename,
+                        subtitles: subtitlesData // Altyazıları da döndür
+                    });
+                } catch (e) {
+                    logs.push(`❌ Output dosya okuma/silme hatası: ${e.message}`);
+                    reject({ error: e, logs });
+                }
+            })
+            .on('error', (err, stdout, stderr) => {
+                logs.push('❌ FFmpeg hatası (Yeniden İşleme): ' + err.message);
+                if (stdout) logs.push('--- FFmpeg STDOUT ---', stdout);
+                if (stderr) logs.push('--- FFmpeg STDERR ---', stderr);
+                reject({ error: err, logs });
+            })
+            .save(outputPath);
     });
 }
 
