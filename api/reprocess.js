@@ -222,21 +222,27 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
         let assPath = null; // drawtext kullandığımız için artık assPath'e gerek yok
 
         try {
-            // Font seçimine göre font verisini belirle
+            // Font seçimine göre font dosyasını oluştur
             let fontBase64;
-            let fontName;
+            let fontExtension;
+            let currentFontPath;
             
             if (fontFamily === 'Avenir') {
                 fontBase64 = avenirFontBase64;
-                fontName = 'AvenirFont';
+                fontExtension = 'otf';
                 logs.push('📁 Avenir fontu kullanılıyor (bellekten)');
             } else {
                 fontBase64 = robotoFontBase64;
-                fontName = 'RobotoFont';
+                fontExtension = 'ttf';
                 logs.push('📁 Roboto fontu kullanılıyor (bellekten)');
             }
             
-            logs.push('🔵 MODE: drawtext (gömülü font ile)');
+            // Font dosyasını geçici olarak yaz
+            currentFontPath = path.join(tempDir, `font_${uniqueId}.${fontExtension}`);
+            fs.writeFileSync(currentFontPath, Buffer.from(fontBase64, 'base64'));
+            logs.push(`✅ ${fontFamily} font dosyası /tmp dizinine yazıldı: ${currentFontPath}`);
+            
+            logs.push('🔵 MODE: drawtext (geçici font dosyası ile)');
             logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
             logs.push(`📐 Reels Ayarları: Genişlik=${maxWidth}%, Kenar=${marginH}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
             logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${backgroundColor}@${backgroundOpacity}`);
@@ -294,7 +300,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Hizalama: ${textAlign}`);
                 
                 drawtextFilters.push(
-                    `drawtext=text='${text}':font=${fontName}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -302,7 +308,6 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
             command = ffmpeg(inputPath)
-                .addFont(Buffer.from(fontBase64, 'base64'), fontName)
                 .videoFilter(fullFilter);
 
             command
@@ -352,6 +357,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                         try {
                             fs.unlinkSync(inputPath);
                             fs.unlinkSync(outputPath);
+                            if (currentFontPath) fs.unlinkSync(currentFontPath);
                             logs.push('🗑️ Temp dosyalar temizlendi');
                         } catch (e) {
                             logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
@@ -385,6 +391,7 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                     try {
                         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
                         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                        if (currentFontPath && fs.existsSync(currentFontPath)) fs.unlinkSync(currentFontPath);
                         logs.push('🗑️ Temp dosyalar temizlendi (hata durumunda)');
                     } catch (e) {
                         logs.push('⚠️ Temp dosya temizleme hatası: ' + e.message);
