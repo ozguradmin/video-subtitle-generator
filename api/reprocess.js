@@ -100,8 +100,8 @@ function escapeTextForFfmpeg(text) {
 async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
-        fontSize = 28, 
-        marginV = 120, 
+        fontSize = 50, 
+        marginV = 300, 
         italic = false, 
         speakerColors = {},
         fontFamily = 'Roboto',

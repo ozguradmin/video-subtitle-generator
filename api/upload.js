@@ -119,8 +119,8 @@ function escapeTextForFfmpeg(text) {
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors) {
     const { 
-        fontSize: 50, 
-        marginV: 300, 
+        fontSize = 50, 
+        marginV = 300, 
         italic = false, 
         fontFamily = 'Roboto',
         maxWidth = 80,
