@@ -129,15 +129,38 @@ function formatTime(totalSeconds) {
 }
 
 function hexToDrawtext(hex) {
-    if (!hex) return 'white';
-    // ASS formatındaki &HBBGGRR& formatını veya #RRGGBB formatını destekler
+    if (!hex) return '0xFFFFFF';
+    
+    // Renk isimlerini hex'e çevir
+    const colorMap = {
+        'yellow': '0xFFFF00',
+        'white': '0xFFFFFF', 
+        'cyan': '0x00FFFF',
+        'magenta': '0xFF00FF',
+        'green': '0x00FF00',
+        'red': '0xFF0000',
+        'blue': '0x0000FF',
+        'black': '0x000000'
+    };
+    
+    if (colorMap[hex.toLowerCase()]) {
+        return colorMap[hex.toLowerCase()];
+    }
+    
+    // ASS formatındaki &HBBGGRR& formatını destekler
     if (hex.startsWith('&H')) {
         const b = hex.substring(2, 4);
         const g = hex.substring(4, 6);
         const r = hex.substring(6, 8);
         return `0x${r}${g}${b}`;
     }
-    return `0x${hex.substring(1)}`;
+    
+    // #RRGGBB formatını destekler
+    if (hex.startsWith('#')) {
+        return `0x${hex.substring(1).toUpperCase()}`;
+    }
+    
+    return '0xFFFFFF'; // Varsayılan beyaz
 }
 
 function convertToAss(subtitlesData, options = {}) {
