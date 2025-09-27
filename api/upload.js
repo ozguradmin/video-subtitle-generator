@@ -193,8 +193,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
     const { 
         fontFile = null, 
-        fontSize = 48, 
-        marginV = 200, 
+        fontSize = 36, 
+        marginV = 150, 
         italic = false, 
         speakerColors = {},
         fontFamily = 'Roboto',
@@ -458,8 +458,8 @@ module.exports = async (req, res) => {
                 
                 logs.push('Altyazı yakma işlemi başlıyor...');
                 const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
-                    fontSize: 48,
-                    marginV: 200,
+                    fontSize: 36,
+                    marginV: 150,
                     italic: false,
                     speakerColors: {},
                     fontFamily: 'Roboto',

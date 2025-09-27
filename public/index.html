@@ -415,8 +415,8 @@
             
             // Style Settings
             styleSettings: {
-                fontSize: 48,
-                marginV: 200,
+                fontSize: 36,
+                marginV: 150,
                 extendDuration: 0.5,
                 italic: false,
                 speakerColors: {}, // Başlangıçta boş, dinamik dolacak
@@ -675,9 +675,9 @@
 
                 try {
                     const response = await fetch('/api/reprocess', { 
-                        method: 'POST', 
+                        method: 'POST',
                         body: formData,
-                        signal: AbortSignal.timeout(600000) // 10 dakika timeout
+                        signal: AbortSignal.timeout(300000) // 5 dakika timeout
                     });
                     const result = await response.json();
                     
