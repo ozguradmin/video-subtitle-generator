@@ -37,6 +37,102 @@ async function generateSubtitles(videoPath) {
     return JSON.parse(cleanedText).subtitles;
 }
 
+// Belirtilen sürede bir video parçası oluşturan fonksiyon
+async function createVideoChunk(inputPath, outputPath, startTime, duration) {
+    return new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+            .setStartTime(startTime)
+            .setDuration(duration)
+            .outputOptions('-c', 'copy') // Re-encoding yapmadan kopyala
+            .output(outputPath)
+            .on('end', () => resolve(outputPath))
+            .on('error', (err) => reject(err))
+            .run();
+    });
+}
+
+
+// Videonun süresini getiren fonksiyon
+async function getVideoDuration(videoPath) {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) {
+                return reject(err);
+            }
+            resolve(metadata.format.duration);
+        });
+    });
+}
+
+
+// Gemini API'ye istek atan ve tekrar deneyen fonksiyon
+async function generateSubtitlesWithRetry(videoPath, logs, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await generateSubtitles(videoPath);
+        } catch (error) {
+            logs.push(`❌ Gemini API Hatası (Deneme ${attempt}/${maxRetries}): ${error.message}`);
+            if (attempt < maxRetries) {
+                logs.push(`⏳ 3 saniye sonra tekrar denenecek...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            } else {
+                logs.push(`🚨 Tüm denemeler başarısız oldu.`);
+                throw error;
+            }
+        }
+    }
+}
+
+// Ana altyazı oluşturma ve birleştirme fonksiyonu
+async function processVideoAndGenerateSubtitles(inputPath, logs) {
+    const CHUNK_DURATION_SECONDS = 58; // Gemini limiti ~1dk, güvenli tarafta kalalım
+    const totalDuration = await getVideoDuration(inputPath);
+    logs.push(`ℹ️ Video süresi: ${totalDuration.toFixed(2)} saniye`);
+
+    if (totalDuration <= CHUNK_DURATION_SECONDS) {
+        logs.push(`🤖 Video tek parça halinde işleniyor...`);
+        return await generateSubtitlesWithRetry(inputPath, logs);
+    }
+
+    // Videoyu parçalara ayır ve işle
+    const numChunks = Math.ceil(totalDuration / CHUNK_DURATION_SECONDS);
+    logs.push(`🔪 Video ${numChunks} parçaya bölünüyor...`);
+    
+    let allSubtitles = [];
+    for (let i = 0; i < numChunks; i++) {
+        const startTime = i * CHUNK_DURATION_SECONDS;
+        const duration = Math.min(CHUNK_DURATION_SECONDS, totalDuration - startTime);
+        const chunkPath = path.join(os.tmpdir(), `chunk-${i}-${uuidv4()}.mp4`);
+        
+        logs.push(`[${i+1}/${numChunks}] 🎬 Parça oluşturuluyor: ${startTime}s - ${startTime+duration}s`);
+        await createVideoChunk(inputPath, chunkPath, startTime, duration);
+
+        try {
+            logs.push(`[${i+1}/${numChunks}] 🤖 Parça için altyazı oluşturuluyor...`);
+            const chunkSubtitles = await generateSubtitlesWithRetry(chunkPath, logs);
+
+            // Zaman kodlarını ayarla
+            const adjustedSubtitles = chunkSubtitles.map(sub => ({
+                ...sub,
+                startTime: sub.startTime + startTime,
+                endTime: sub.endTime + startTime
+            }));
+
+            allSubtitles = allSubtitles.concat(adjustedSubtitles);
+            logs.push(`[${i+1}/${numChunks}] ✅ Parça başarıyla işlendi.`);
+
+        } finally {
+            // Geçici chunk dosyasını sil
+            if (fs.existsSync(chunkPath)) {
+                fs.unlinkSync(chunkPath);
+            }
+        }
+    }
+
+    logs.push(`🧩 Tüm altyazılar birleştirildi.`);
+    return allSubtitles;
+}
+
 // Font dosya yolları
 const fontPaths = {
     'Roboto': path.join(__dirname, '..', 'public', 'fonts', 'Roboto-Regular.ttf'),
@@ -380,11 +476,11 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
         // AI'dan altyazı oluşturma simülasyonu
         console.log('🤖 AI\'a video analizi için istek gönderiliyor...');
+        const logs = [];
         
-        // Gerçek AI Altyazı Oluşturma
-        const subtitles = await generateSubtitles(inputPath);
+        // Gerçek AI Altyazı Oluşturma (Parçalama ve Tekrar Deneme ile)
+        const subtitles = await processVideoAndGenerateSubtitles(inputPath, logs);
 
-        console.log('✅ AI yanıtı başarıyla JSON olarak ayrıştırıldı.');
         console.log('✅ Yapay zekadan altyazılar başarıyla oluşturuldu.');
 
         // Stil ayarları
@@ -412,15 +508,18 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         // Altyazı yakma işlemini başlat
         const result = await burnSubtitles(inputPath, subtitles, selectedStyle, speakerColors);
         
+        // Başlangıç loglarını result.logs'un başına ekle
+        const finalLogs = logs.concat(result.logs);
+
         console.log('✅ Altyazı yakma işlemi tamamlandı');
-        console.log(`📊 İşlem logları: ${result.logs.length} adet`);
+        console.log(`📊 İşlem logları: ${finalLogs.length} adet`);
 
         // Başarılı yanıt
                 res.json({ 
                     success: true, 
             message: 'Video başarıyla işlendi',
             filename: result.filename,
-            logs: result.logs,
+            logs: finalLogs,
             videoBuffer: result.outputBuffer.toString('base64'),
             subtitles: { subtitles: subtitles } // Oluşturulan altyazıları ekle
         });

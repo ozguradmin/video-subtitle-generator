@@ -75,7 +75,7 @@
                 </div>
                         <p class="text-sm mb-4" :class="{ 'text-green-500': statusType === 'success', 'text-red-500': statusType === 'error', 'text-gray-400': statusType === 'processing' }" x-text="statusMessage"></p>
                         <div x-show="logs.length > 0">
-                           <div class="p-4 rounded bg-gray-100 dark:bg-gray-800 h-48 overflow-y-auto">
+                           <div class="p-4 rounded bg-gray-100 dark:bg-gray-800 h-64 overflow-y-auto">
                                 <pre class="text-xs text-gray-600 dark:text-gray-400" x-text="logs.join('\n') || 'Görüntülenecek kayıt yok.'"></pre>
             </div>
                 </div>

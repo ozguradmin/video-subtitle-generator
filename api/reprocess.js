@@ -410,7 +410,7 @@ app.post('/api/reprocess', upload.single('video'), async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: error.message || 'Video yeniden işlenirken hata oluştu',
-            logs: err.logs || ['İç sunucu hatası.']
+            logs: err.logs || [`İç sunucu hatası: ${error.message}`]
         });
     } finally {
         // Geçici yüklenen video dosyasını temizle
