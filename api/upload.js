@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateSubtitles(videoPath) {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const prompt = "Bu videodaki konuşmaları analiz et ve altyazıları JSON formatında, her bir altyazı için başlangıç ve bitiş zamanları (saniye cinsinden) ile birlikte oluştur. Sadece JSON çıktısı ver, başka hiçbir metin ekleme. Format şu şekilde olmalı: { \"subtitles\": [ { \"speaker\": \"Konuşmacı 1\", \"startTime\": 0.0, \"endTime\": 2.5, \"line\": \"Metin...\" } ] }";
     
