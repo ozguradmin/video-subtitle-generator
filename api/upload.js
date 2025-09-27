@@ -174,7 +174,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
 
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${complexFilter.substring(0, 200)}...`);
 
-            ffmpeg(videoPath)
+            const command = ffmpeg(videoPath)
                 .videoFilter(complexFilter)
                 .output(outputPath)
                 .outputOptions([
@@ -263,7 +263,7 @@ async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors)
                     reject({ error: err, logs });
                 });
             
-            ffmpeg.run(videoPath, complexFilter, outputPath);
+            command.run();
 
         } catch (error) {
             logs.push(`❌ Altyazı hazırlığında hata: ${error.message}`);

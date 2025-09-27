@@ -221,10 +221,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             
             logs.push(`🔧 Oluşturulan FFmpeg Filtresi: ${fullFilter.substring(0, 200)}...`);
 
-            command = ffmpeg(videoPath) // videoPath'i kullan
-                .videoFilter(fullFilter);
-
-            command
+            const command = ffmpeg(videoPath)
+                .videoFilter(fullFilter)
                 .output(outputPath)
                 .outputOptions([
                     '-c:v', 'libx264',
@@ -312,7 +310,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                     
                     reject({ error: err, logs });
                 });
-            
+
             command.run();
 
         } catch (error) {
