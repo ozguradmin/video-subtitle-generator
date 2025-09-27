@@ -119,8 +119,8 @@ function escapeTextForFfmpeg(text) {
 // Altyazı yakma fonksiyonu
 async function burnSubtitles(videoPath, subtitles, selectedStyle, speakerColors) {
     const { 
-        fontSize = 44, 
-        marginV = 255, 
+        fontSize: 50, 
+        marginV: 300, 
         italic = false, 
         fontFamily = 'Roboto',
         maxWidth = 80,
@@ -349,8 +349,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
         // Stil ayarları
         const selectedStyle = {
-                    fontSize: 44,
-                    marginV: 255,
+                    fontSize: 50,
+                    marginV: 300,
                     italic: false,
                     fontFamily: 'Roboto',
                     maxWidth: 80,
