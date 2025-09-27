@@ -265,12 +265,86 @@
                                 <span>Uzatma Süresi (s)</span><span x-text="styleSettings.extendDuration"></span>
                             </label>
                             <input type="range" min="0" max="5" step="0.1" x-model="styleSettings.extendDuration" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
-        </div>
+                        </div>
                         <div class="mt-6 flex justify-end">
                             <button @click="extendAllDurations" class="flex items-center justify-center rounded bg-primary px-6 py-3 text-sm font-bold text-white hover:bg-opacity-90 transition-colors">
                                 <span>Tüm Bitiş Sürelerini Uzat</span>
                             </button>
-        </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reels Optimizasyonu -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Reels Optimizasyonu</h3>
+                        <div class="space-y-4">
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Metin Genişliği (%)</span><span x-text="styleSettings.maxWidth"></span>
+                                </label>
+                                <input type="range" min="50" max="95" x-model="styleSettings.maxWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Kenar Boşluğu (px)</span><span x-text="styleSettings.marginH"></span>
+                                </label>
+                                <input type="range" min="5" max="50" x-model="styleSettings.marginH" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Satır Arası Boşluk (px)</span><span x-text="styleSettings.lineSpacing"></span>
+                                </label>
+                                <input type="range" min="0" max="20" x-model="styleSettings.lineSpacing" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Metin Hizalama</label>
+                                <select x-model="styleSettings.textAlign" class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm">
+                                    <option value="center">Ortala</option>
+                                    <option value="left">Sol</option>
+                                    <option value="right">Sağ</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Görsel Efektler -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                        <h3 class="text-md font-semibold text-gray-800 dark:text-gray-100 mb-4">Görsel Efektler</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Gölge Efekti</label>
+                                <input type="checkbox" x-model="styleSettings.shadow" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Kontur Efekti</label>
+                                <input type="checkbox" x-model="styleSettings.outline" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            </div>
+                            <div x-show="styleSettings.outline" class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Kontur Kalınlığı (px)</span><span x-text="styleSettings.outlineWidth"></span>
+                                </label>
+                                <input type="range" min="1" max="10" x-model="styleSettings.outlineWidth" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            <div x-show="styleSettings.shadow" class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Gölge Mesafesi (px)</span><span x-text="styleSettings.shadowOffset"></span>
+                                </label>
+                                <input type="range" min="1" max="10" x-model="styleSettings.shadowOffset" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Arka Plan Rengi</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" x-model="styleSettings.backgroundColor" class="w-8 h-8 p-0 border-0 rounded cursor-pointer">
+                                    <input type="text" x-model="styleSettings.backgroundColor" placeholder="#000000" class="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm">
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <span>Arka Plan Şeffaflığı</span><span x-text="Math.round(styleSettings.backgroundOpacity * 100)"></span>%
+                                </label>
+                                <input type="range" min="0" max="1" step="0.1" x-model="styleSettings.backgroundOpacity" class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary">
+                            </div>
+                        </div>
+                    </div>
         </div>
     </div>
             </main>
@@ -310,7 +384,18 @@
                 marginV: 80,
                 extendDuration: 0.5,
                 italic: false,
-                speakerColors: {} // Başlangıçta boş, dinamik dolacak
+                speakerColors: {}, // Başlangıçta boş, dinamik dolacak
+                // Reels için ek ayarlar
+                maxWidth: 80, // Metin genişliği (yüzde)
+                marginH: 10, // Sol/sağ kenar boşluğu (piksel)
+                lineSpacing: 5, // Satır arası boşluk
+                textAlign: 'center', // Metin hizalama
+                shadow: true, // Gölge efekti
+                outline: true, // Kontur efekti
+                outlineWidth: 2, // Kontur kalınlığı
+                shadowOffset: 2, // Gölge mesafesi
+                backgroundColor: 'black', // Arka plan rengi
+                backgroundOpacity: 0.5 // Arka plan şeffaflığı
             },
 
             // --- METHODS ---
@@ -523,15 +608,28 @@
                 formData.append('fontSize', this.styleSettings.fontSize);
                 formData.append('marginV', this.styleSettings.marginV);
                 formData.append('italic', this.styleSettings.italic);
-                formData.append('extendDuration', this.styleSettings.extendDuration);
                 formData.append('speakerColors', JSON.stringify(this.styleSettings.speakerColors));
+                formData.append('maxWidth', this.styleSettings.maxWidth);
+                formData.append('marginH', this.styleSettings.marginH);
+                formData.append('lineSpacing', this.styleSettings.lineSpacing);
+                formData.append('textAlign', this.styleSettings.textAlign);
+                formData.append('shadow', this.styleSettings.shadow);
+                formData.append('outline', this.styleSettings.outline);
+                formData.append('outlineWidth', this.styleSettings.outlineWidth);
+                formData.append('shadowOffset', this.styleSettings.shadowOffset);
+                formData.append('backgroundColor', this.styleSettings.backgroundColor);
+                formData.append('backgroundOpacity', this.styleSettings.backgroundOpacity);
                 
                 // Debug logları
                 this.addLog(`🎨 Gönderilen stil ayarları:`);
                 this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}`);
                 this.addLog(`   Dikey Konum: ${this.styleSettings.marginV}`);
                 this.addLog(`   İtalik: ${this.styleSettings.italic}`);
-                this.addLog(`   Uzatma Süresi: ${this.styleSettings.extendDuration}s`);
+                this.addLog(`   Metin Genişliği: ${this.styleSettings.maxWidth}%`);
+                this.addLog(`   Kenar Boşluğu: ${this.styleSettings.marginH}px`);
+                this.addLog(`   Satır Arası: ${this.styleSettings.lineSpacing}px`);
+                this.addLog(`   Hizalama: ${this.styleSettings.textAlign}`);
+                this.addLog(`   Gölge: ${this.styleSettings.shadow}, Kontur: ${this.styleSettings.outline}`);
                 this.addLog(`   Konuşmacı Renkleri: ${JSON.stringify(this.styleSettings.speakerColors)}`);
 
                 const fontInput = document.getElementById('font-upload');

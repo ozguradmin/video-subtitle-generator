@@ -8,8 +8,20 @@ const { v4: uuidv4 } = require('uuid');
 const os = require('os');
 
 // Hex renk formatını FFmpeg drawtext formatına çevir
-function hexToDrawtext(hex) {
-    if (!hex) return '0xFFFFFF';
+function hexToDrawtext(hexColor) {
+    if (!hexColor) return 'white';
+    
+    // Eğer zaten FFmpeg formatındaysa (0xRRGGBB) döndür
+    if (hexColor.startsWith('0x')) {
+        return hexColor;
+    }
+    
+    // Hex renk formatını temizle
+    let cleanHex = hexColor.replace('#', '');
+    if (cleanHex.length === 3) {
+        // #RGB -> #RRGGBB
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+    }
     
     // Renk isimlerini hex'e çevir
     const colorMap = {
@@ -23,26 +35,13 @@ function hexToDrawtext(hex) {
         'black': '0x000000'
     };
     
-    if (colorMap[hex.toLowerCase()]) {
-        return colorMap[hex.toLowerCase()];
+    if (colorMap[hexColor.toLowerCase()]) {
+        return colorMap[hexColor.toLowerCase()];
     }
     
-    // Eğer zaten FFmpeg formatındaysa (0xRRGGBB) döndür
-    if (hex.startsWith('0x')) {
-        return hex;
-    }
-    
-    // ASS formatındaki &HBBGGRR& formatını destekler
-    if (hex.startsWith('&H')) {
-        const b = hex.substring(2, 4);
-        const g = hex.substring(4, 6);
-        const r = hex.substring(6, 8);
-        return `0x${r}${g}${b}`;
-    }
-    
-    // #RRGGBB formatını destekler
-    if (hex.startsWith('#')) {
-        return `0x${hex.substring(1).toUpperCase()}`;
+    // Hex renk formatını FFmpeg formatına çevir
+    if (cleanHex.length === 6) {
+        return `0x${cleanHex.toUpperCase()}`;
     }
     
     return '0xFFFFFF'; // Varsayılan beyaz
@@ -195,7 +194,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 }
 
 async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
-    const { fontFile = null, fontSize = 16, marginV = 80, italic = false, speakerColors = {} } = options;
+    const { 
+        fontFile = null, 
+        fontSize = 16, 
+        marginV = 80, 
+        italic = false, 
+        speakerColors = {},
+        maxWidth = 80,
+        marginH = 10,
+        lineSpacing = 5,
+        textAlign = 'center',
+        shadow = true,
+        outline = true,
+        outlineWidth = 2,
+        shadowOffset = 2,
+        backgroundColor = 'black',
+        backgroundOpacity = 0.5
+    } = options;
     const logs = [];
     const tempDir = os.tmpdir();
     const uniqueId = uuidv4();
@@ -218,7 +233,9 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
             
             logs.push('🔵 MODE: drawtext (gömülü font ile)');
             logs.push(`📏 Stil Parametreleri: Font Boyutu=${fontSize}, Dikey Konum=${marginV}, İtalik=${italic}`);
-            logs.push(`🎨 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
+            logs.push(`📐 Reels Ayarları: Genişlik=${maxWidth}%, Kenar=${marginH}px, Satır Arası=${lineSpacing}px, Hizalama=${textAlign}`);
+            logs.push(`🎨 Efektler: Gölge=${shadow}, Kontur=${outline}, Arka Plan=${backgroundColor}@${backgroundOpacity}`);
+            logs.push(`🎭 Konuşmacı Renkleri: ${JSON.stringify(speakerColors)}`);
 
             const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
             
@@ -242,17 +259,37 @@ async function burnSubtitles(videoBuffer, subtitlesData, options = {}) {
                 // Hex renk formatını FFmpeg formatına çevir
                 const ffmpegColor = hexToDrawtext(color);
                 
-                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} -> ${ffmpegColor} - Boyut: ${fontSize} - Konum: ${marginV}`);
+                // Metin genişliği hesapla (piksel cinsinden)
+                const textWidth = Math.floor((1080 * maxWidth) / 100) - (marginH * 2);
                 
-                // İtalik ayarı için font dosyası seçimi
-                let fontFile = currentFontPath;
-                if (italic) {
-                    // İtalik için ayrı font dosyası gerekebilir, şimdilik normal font kullanıyoruz
-                    logs.push(`⚠️ İtalik ayarı aktif ama FFmpeg drawtext'te desteklenmiyor: ${italic}`);
+                // Hizalama pozisyonu hesapla
+                let xPosition;
+                if (textAlign === 'left') {
+                    xPosition = marginH;
+                } else if (textAlign === 'right') {
+                    xPosition = `w-${marginH}-text_w`;
+                } else { // center
+                    xPosition = `(w-text_w)/2`;
                 }
                 
+                // Arka plan rengi ve şeffaflığı
+                const bgColor = hexToDrawtext(backgroundColor);
+                const bgOpacity = Math.round(backgroundOpacity * 255).toString(16).padStart(2, '0');
+                const bgColorWithOpacity = `${bgColor}${bgOpacity}`;
+                
+                // Gölge ve kontur efektleri
+                let effects = '';
+                if (shadow) {
+                    effects += `:shadowcolor=black@0.8:shadowx=${shadowOffset}:shadowy=${shadowOffset}`;
+                }
+                if (outline) {
+                    effects += `:borderw=${outlineWidth}:bordercolor=black`;
+                }
+                
+                logs.push(`🎨 Altyazı ${index + 1}: "${sub.speaker}" - Renk: ${color} (${ffmpegColor}) - Boyut: ${fontSize} - Konum: ${marginV} - Genişlik: ${textWidth}px`);
+                
                 drawtextFilters.push(
-                    `drawtext=text='${text}':fontfile=${fontFile}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-${marginV}:enable='between(t,${sub.startTime},${sub.endTime})'`
+                    `drawtext=text='${text}':fontfile=${currentFontPath}:fontsize=${fontSize}:fontcolor=${ffmpegColor}:x=${xPosition}:y=h-th-${marginV}:w=${textWidth}:line_spacing=${lineSpacing}:box=1:boxcolor=${bgColorWithOpacity}:boxborderw=5${effects}:enable='between(t,${sub.startTime},${sub.endTime})'`
                 );
             });
 
@@ -381,7 +418,23 @@ module.exports = async (req, res) => {
             }
 
             // Request body'den parametreleri al
-            const { subtitles, fontSize, marginV, italic, extendDuration, speakerColors } = req.body;
+            const { 
+                subtitles, 
+                fontSize, 
+                marginV, 
+                italic, 
+                speakerColors,
+                maxWidth,
+                marginH,
+                lineSpacing,
+                textAlign,
+                shadow,
+                outline,
+                outlineWidth,
+                shadowOffset,
+                backgroundColor,
+                backgroundOpacity
+            } = req.body;
             
             // Video dosyasını kontrol et
             if (!req.files || !req.files.video || !req.files.video[0]) {
@@ -397,7 +450,6 @@ module.exports = async (req, res) => {
             logs.push(`📁 Video dosyası: ${req.files.video[0].originalname} (${req.files.video[0].size} bytes)`);
             logs.push(`📝 Altyazı sayısı: ${subtitles.length}`);
             logs.push(`🎨 Font boyutu: ${fontSize || 16}, Dikey konum: ${marginV || 80}`);
-            logs.push(`⏱️ Uzatma süresi: ${extendDuration || 0.5}s`);
             logs.push(`🎭 Konuşmacı renkleri: ${JSON.stringify(speakerColors || {})}`);
 
             try {
@@ -419,7 +471,17 @@ module.exports = async (req, res) => {
                     fontSize: parseInt(fontSize) || 16,
                     marginV: parseInt(marginV) || 80,
                     italic: italic === 'true' || italic === true,
-                    speakerColors: speakerColorsData
+                    speakerColors: speakerColorsData,
+                    maxWidth: parseInt(maxWidth) || 80,
+                    marginH: parseInt(marginH) || 10,
+                    lineSpacing: parseInt(lineSpacing) || 5,
+                    textAlign: textAlign || 'center',
+                    shadow: shadow === 'true' || shadow === true,
+                    outline: outline === 'true' || outline === true,
+                    outlineWidth: parseInt(outlineWidth) || 2,
+                    shadowOffset: parseInt(shadowOffset) || 2,
+                    backgroundColor: backgroundColor || 'black',
+                    backgroundOpacity: parseFloat(backgroundOpacity) || 0.5
                 });
 
                 logs.push('✅ Video yeniden işleme tamamlandı.');
