@@ -7,6 +7,46 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const os = require('os');
 
+// Hex renk formatını FFmpeg drawtext formatına çevir
+function hexToDrawtext(hexColor) {
+    if (!hexColor) return 'white';
+    
+    // Eğer zaten FFmpeg formatındaysa (0xRRGGBB) döndür
+    if (hexColor.startsWith('0x')) {
+        return hexColor;
+    }
+    
+    // Hex renk formatını temizle
+    let cleanHex = hexColor.replace('#', '');
+    if (cleanHex.length === 3) {
+        // #RGB -> #RRGGBB
+        cleanHex = cleanHex.split('').map(c => c + c).join('');
+    }
+    
+    // Renk isimlerini hex'e çevir
+    const colorMap = {
+        'yellow': '0xFFFF00',
+        'white': '0xFFFFFF', 
+        'cyan': '0x00FFFF',
+        'magenta': '0xFF00FF',
+        'green': '0x00FF00',
+        'red': '0xFF0000',
+        'blue': '0x0000FF',
+        'black': '0x000000'
+    };
+    
+    if (colorMap[hexColor.toLowerCase()]) {
+        return colorMap[hexColor.toLowerCase()];
+    }
+    
+    // Hex renk formatını FFmpeg formatına çevir
+    if (cleanHex.length === 6) {
+        return `0x${cleanHex.toUpperCase()}`;
+    }
+    
+    return '0xFFFFFF'; // Varsayılan beyaz
+}
+
 // Google AI için yardımcı bir sınıf veya fonksiyon
 class GeminiHelper {
     constructor(apiKey) {
@@ -125,17 +165,6 @@ function formatTime(totalSeconds) {
     return `${hours}:${pad(minutes)}:${pad(seconds)}.${pad(centiseconds)}`;
 }
 
-function hexToDrawtext(hex) {
-    if (!hex) return 'white';
-    // ASS formatındaki &HBBGGRR& formatını veya #RRGGBB formatını destekler
-    if (hex.startsWith('&H')) {
-        const b = hex.substring(2, 4);
-        const g = hex.substring(4, 6);
-        const r = hex.substring(6, 8);
-        return `0x${r}${g}${b}`;
-    }
-    return `0x${hex.substring(1)}`;
-}
 
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;

@@ -524,6 +524,13 @@
                 formData.append('marginV', this.styleSettings.marginV);
                 formData.append('italic', this.styleSettings.italic);
                 formData.append('speakerColors', JSON.stringify(this.styleSettings.speakerColors));
+                
+                // Debug logları
+                this.addLog(`🎨 Gönderilen stil ayarları:`);
+                this.addLog(`   Font Boyutu: ${this.styleSettings.fontSize}`);
+                this.addLog(`   Dikey Konum: ${this.styleSettings.marginV}`);
+                this.addLog(`   İtalik: ${this.styleSettings.italic}`);
+                this.addLog(`   Konuşmacı Renkleri: ${JSON.stringify(this.styleSettings.speakerColors)}`);
 
                 const fontInput = document.getElementById('font-upload');
                 if (fontInput.files[0]) {
