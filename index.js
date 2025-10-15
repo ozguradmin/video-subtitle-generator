@@ -259,8 +259,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         }
 
         const fontFileProvided = Boolean(fontFile && fontFile.filename);
-        // By default use drawtext (more deterministic on minimal systems). Set PREFER_ASS=true to force ASS.
-        const useDrawtext = !PREFER_ASS || fontFileProvided || FORCE_DRAWTEXT || Boolean(defaultFontPath);
+        // Railway'da font problemi var - ASLA drawtext kullanma, her zaman SRT kullan
+        const useDrawtext = false; // Drawtext devre dışı - fontconfig çalışmıyor Railway'da
 
         if (useDrawtext) {
             try {
