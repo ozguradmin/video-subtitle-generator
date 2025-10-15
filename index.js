@@ -178,8 +178,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         const outputFilename = `subtitled_${path.basename(videoPath, path.extname(videoPath))}-${uniqueSuffix}${path.extname(videoPath)}`;
         const outputPath = path.join(__dirname, 'processed', outputFilename);
         
-        // 9:16 formatına dönüştürme ve siyah bar ekleme
-        const videoResizingFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black';
+        // 9:16 formatına dönüştürme ve siyah bar ekleme (daha hafif: 720x1280)
+        const videoResizingFilter = 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=black';
 
         if (fontFile && fontFile.filename) {
             try {
@@ -226,7 +226,16 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                     ...filters.map(f => ({ ...f, inputs: 'padded', outputs: 'padded' }))
                 ];
 
-                command = ffmpeg(videoPath).complexFilter(complexFilters, 'padded');
+                command = ffmpeg(videoPath)
+                    .complexFilter(complexFilters, 'padded')
+                    .videoCodec('libx264')
+                    .audioCodec('aac')
+                    .outputOptions([
+                        '-preset ultrafast', // CPU kullanımı düşük, daha hızlı
+                        '-crf 28',            // Kalite/fayda dengesi
+                        '-threads 1',         // Bellek kullanımını azalt
+                        '-movflags +faststart'
+                    ]);
             } catch (e) {
                 const errorMsg = '❌ drawtext hazırlığında hata: ' + (e?.message || e);
                 logs.push(errorMsg);
@@ -244,7 +253,16 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             const relativeAssPath = path.join('uploads', assFilename).replace(/\\/g, '/');
             // Önce videoyu yeniden boyutlandır, sonra altyazıları uygula
             const videoFilter = `${videoResizingFilter},subtitles=filename='${relativeAssPath}'`;
-            command = ffmpeg(videoPath).videoFilter(videoFilter);
+            command = ffmpeg(videoPath)
+                .videoFilter(videoFilter)
+                .videoCodec('libx264')
+                .audioCodec('aac')
+                .outputOptions([
+                    '-preset ultrafast',
+                    '-crf 30',            // ASS + libass daha ağır olabilir
+                    '-threads 1',
+                    '-movflags +faststart'
+                ]);
         }
 
         command
@@ -252,6 +270,10 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             .output(outputPath)
             .on('start', (commandLine) => {
                 logs.push('🚀 FFmpeg komutu çalıştırılıyor:\n' + commandLine);
+            })
+            .on('progress', (progress) => {
+                const prog = `⏱️ ilerleme: ${progress.frames || 0} frame, ${progress.currentFps || 0} fps, ${progress.timemark || '00:00:00'}`;
+                logs.push(prog);
             })
             .on('end', () => {
                 logs.push('✅ Altyazı yakma işlemi başarıyla tamamlandı.');
