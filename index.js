@@ -513,9 +513,63 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
 });
 
 // Frontend uyumluluğu için API alias
+// /api/reprocess için aynı handler'ı kullan
 app.post('/api/reprocess', reprocessUpload, async (req, res) => {
-    req.url = '/reprocess';
-    return app._router.handle(req, res);
+    const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
+    let fullLogs = ['\n--- Yeniden İşleme İsteği Aldı (API) ---'];
+
+    if (!videoPath || !subtitles) {
+        return res.status(400).json({ success: false, message: 'Video yolu ve altyazı verisi gereklidir.', logs: fullLogs.concat('❌ Video yolu ve altyazı verisi gereklidir.') });
+    }
+
+    const originalVideoFullPath = path.join(__dirname, videoPath);
+    fullLogs.push(`ℹ️ Orijinal video yolu: ${originalVideoFullPath}`);
+
+    if (!fs.existsSync(originalVideoFullPath)) {
+        return res.status(404).json({ success: false, message: 'Sunucuda dosya bulunamadı.', logs: fullLogs.concat(`❌ Sunucu tarafında dosya bulunamadı: ${originalVideoFullPath}`) });
+    }
+
+    if (req.file) {
+        fullLogs.push(`ℹ️ Font dosyası yüklendi: ${req.file.originalname}`);
+    }
+
+    try {
+        const subtitlesData = typeof subtitles === 'string' ? JSON.parse(subtitles) : subtitles;
+        const speakerColorsData = typeof speakerColors === 'string' ? JSON.parse(speakerColors) : (speakerColors || {});
+        fullLogs.push('✅ Altyazı ve stil verisi başarıyla parse edildi.');
+
+        const burnResult = await burnSubtitles(originalVideoFullPath, subtitlesData, {
+            fontFile: req.file,
+            fontSize: Number(fontSize),
+            marginV: Number(marginV),
+            italic: italic === 'true' || italic === true,
+            speakerColors: speakerColorsData
+        });
+
+        fullLogs = fullLogs.concat(burnResult.logs);
+        
+        res.json({ 
+            success: true, 
+            message: 'Video başarıyla yeniden işlendi.',
+            downloadUrl: `/${path.join('processed', path.basename(burnResult.finalVideoPath)).replace(/\\/g, '/')}`,
+            logs: fullLogs
+        });
+
+    } catch (error) {
+        const errorLogs = error.logs || [];
+        fullLogs = fullLogs.concat(errorLogs);
+        fullLogs.push('❌ Yeniden İşleme Hatası: ' + (error.message || (error.error && error.error.message)));
+        res.status(500).json({ 
+            success: false, 
+            message: 'Yeniden işleme sırasında bir hata oluştu.', 
+            error: (error.message || (error.error && error.error.message)),
+            logs: fullLogs 
+        });
+    } finally {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+    }
 });
 
 app.get('/', (req, res) => {
