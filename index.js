@@ -42,8 +42,8 @@ async function generateSubtitles(videoPath) {
     if (USE_FAKE_AI) {
         return generateSubtitlesFallback();
     }
-    // For text-only input, use the gemini-pro model
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+    // For text-only input, use the gemini-2.5-flash model
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Lütfen bu videonun altyazılarını oluştur.
 ROLE: Sen uzman bir video altyazı oluşturucusun.
 TASK: Sana verilen videoyu analiz et ve aşağıdaki ÇOK KESİN kurallara uyarak Türkçe altyazı oluştur.
