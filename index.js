@@ -343,19 +343,9 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 return;
             }
         } else {
-            logs.push('🔵 MODE: subtitles/ASS (drawtext kullanılmıyor)');
-            const assContent = convertToAss(subtitlesData, { fontName: 'Arial', fontSize: fontSize, marginV: marginV, italic: italic, speakerColors: speakerColors });
-            const assFilename = `${path.basename(videoPath, path.extname(videoPath))}.ass`;
-            const assPath = path.join(__dirname, 'uploads', assFilename);
-            fs.writeFileSync(assPath, assContent);
-            logs.push('✅ Geçici .ass altyazı dosyası oluşturuldu.');
-
-            const relativeAssPath = path.join('uploads', assFilename).replace(/\\/g, '/');
-            const absoluteAssPath = assPath.replace(/\\/g, '/');
-            logs.push(`ℹ️ ASS path (relative): ${relativeAssPath}`);
-            logs.push(`ℹ️ ASS path (absolute): ${absoluteAssPath}`);
+            logs.push('🔵 MODE: subtitles/SRT (fontconfig bypass)');
             
-            // Fontconfig'i bypass et - SRT kullan (daha basit, font gerektirmez)
+            // SRT kullan - fontconfig bypass, universal format
             const srtFilename = `${path.basename(videoPath, path.extname(videoPath))}.srt`;
             const srtPath = path.join(__dirname, 'uploads', srtFilename);
             const srtContent = convertToSRT(subtitlesData);
@@ -365,7 +355,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             const absoluteSrtPath = srtPath.replace(/\\/g, '/');
             logs.push(`ℹ️ SRT path (absolute): ${absoluteSrtPath}`);
             
-            // SRT filter - fontconfig bypass
+            // SRT filter - fontconfig bypass, basit ve güvenilir
             const videoFilter = `${videoResizingFilter},subtitles=filename='${absoluteSrtPath}'`;
             command = ffmpeg(videoPath)
                 .videoFilter(videoFilter)
@@ -509,8 +499,8 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
 
         const burnResult = await burnSubtitles(originalVideoFullPath, subtitlesData, {
             fontFile: req.file,
-            fontSize: Number(fontSize),
-            marginV: Number(marginV),
+            fontSize: Number(fontSize) || 24,
+            marginV: Number(marginV) || 60,
             italic: italic === 'true' || italic === true,
             speakerColors: speakerColorsData
         });
@@ -586,8 +576,8 @@ app.post('/api/reprocess', reprocessUpload, async (req, res) => {
 
         const burnResult = await burnSubtitles(originalVideoFullPath, subtitlesData, {
             fontFile: req.file,
-            fontSize: Number(fontSize),
-            marginV: Number(marginV),
+            fontSize: Number(fontSize) || 24,
+            marginV: Number(marginV) || 60,
             italic: italic === 'true' || italic === true,
             speakerColors: speakerColorsData
         });
