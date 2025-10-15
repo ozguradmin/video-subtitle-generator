@@ -31,6 +31,7 @@ ensureDir(path.join(__dirname, 'processed'));
 
 const genAI = !USE_FAKE_AI ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 const FORCE_DRAWTEXT = String(process.env.FORCE_DRAWTEXT || '').toLowerCase() === 'true';
+const PREFER_ASS = String(process.env.PREFER_ASS || '').toLowerCase() === 'true';
 
 function fileToGenerativePart(path, mimeType) {
     return {
@@ -198,7 +199,8 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         }
 
         const fontFileProvided = Boolean(fontFile && fontFile.filename);
-        const useDrawtext = fontFileProvided || FORCE_DRAWTEXT || Boolean(defaultFontPath);
+        // By default use drawtext (more deterministic on minimal systems). Set PREFER_ASS=true to force ASS.
+        const useDrawtext = !PREFER_ASS || fontFileProvided || FORCE_DRAWTEXT || Boolean(defaultFontPath);
 
         if (useDrawtext) {
             try {
@@ -342,7 +344,7 @@ app.get('/test', (req, res) => {
 // Railway'da uploads klasörü olmayabilir, memory storage kullan
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-const reprocessUpload = multer({ storage: storage }).single('font');
+const reprocessUpload = multer({ storage: storage }).single(undefined);
 
 async function uploadHandler(req, res) {
     if (!req.file) {
@@ -413,14 +415,14 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
     }
 
     try {
-        const subtitlesData = JSON.parse(subtitles);
-        const speakerColorsData = speakerColors ? JSON.parse(speakerColors) : {};
+        const subtitlesData = typeof subtitles === 'string' ? JSON.parse(subtitles) : subtitles;
+        const speakerColorsData = typeof speakerColors === 'string' ? JSON.parse(speakerColors) : (speakerColors || {});
         fullLogs.push('✅ Altyazı ve stil verisi başarıyla parse edildi.');
 
         const burnResult = await burnSubtitles(originalVideoFullPath, subtitlesData, {
             fontFile: req.file,
-            fontSize: fontSize,
-            marginV: marginV,
+            fontSize: Number(fontSize),
+            marginV: Number(marginV),
             italic: italic === 'true' || italic === true,
             speakerColors: speakerColorsData
         });
