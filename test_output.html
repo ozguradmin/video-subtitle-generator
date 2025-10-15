@@ -1,0 +1,250 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Subtitle Generator - Cloudflare</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .upload-area { 
+            border: 2px dashed #ccc; 
+            padding: 2rem; 
+            text-align: center; 
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { border-color: #3b82f6; background-color: #f8fafc; }
+        .upload-area.dragover { border-color: #3b82f6; background-color: #eff6ff; }
+        .btn { 
+            background: #3b82f6; 
+            color: white; 
+            padding: 0.75rem 1.5rem; 
+            border-radius: 6px; 
+            border: none; 
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .log-area { 
+            background: #f3f4f6; 
+            padding: 1rem; 
+            border-radius: 6px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            font-family: monospace; 
+            font-size: 0.875rem;
+        }
+        .status-success { color: #059669; }
+        .status-error { color: #dc2626; }
+        .status-processing { color: #d97706; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto p-4" x-data="videoEditor()">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">ð¬ Video AltyazÄ± Generator</h1>
+            <p class="text-gray-600">Gemini 2.5 Flash ile otomatik altyazÄ± oluÅturun</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">1. Video YÃ¼kle</h2>
+            
+            <div class="upload-area" 
+                 @click="$refs.fileInput.click()"
+                 @dragover.prevent="isDragOver = true"
+                 @dragleave.prevent="isDragOver = false"
+                 @drop.prevent="handleDrop($event)"
+                 :class="{ 'dragover': isDragOver }">
+                <div class="text-4xl mb-2">ð</div>
+                <p class="text-gray-600 mb-2">Video dosyasÄ±nÄ± buraya sÃ¼rÃ¼kleyin veya tÄ±klayÄ±n</p>
+                <p class="text-sm text-gray-500">Desteklenen formatlar: MP4, AVI, MOV, MKV</p>
+            </div>
+            
+            <input type="file" 
+                   x-ref="fileInput" 
+                   @change="handleFileSelect($event)" 
+                   accept="video/*" 
+                   class="hidden">
+            
+            <div x-show="fileName" class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-sm"><strong>SeÃ§ilen dosya:</strong> <span x-text="fileName"></span></p>
+            </div>
+            
+            <button @click="handleUpload" 
+                    :disabled="!originalVideoFile || isLoading"
+                    class="btn mt-4">
+                <span x-text="isLoading ? 'Ä°Åleniyor...' : 'AltyazÄ± OluÅtur'"></span>
+            </button>
+        </div>
+
+        <!-- Status Section -->
+        <div x-show="statusMessage" class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Durum</h2>
+            <p class="status-processing" 
+               :class="{ 'status-success': statusType === 'success', 'status-error': statusType === 'error' }"
+               x-text="statusMessage"></p>
+        </div>
+
+        <!-- Logs Section -->
+        <div x-show="logs.length > 0" class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">Ä°Ålem KayÄ±tlarÄ±</h2>
+                <button @click="copyLogs" class="text-sm text-blue-600 hover:text-blue-800">Kopyala</button>
+            </div>
+            <div class="log-area" x-text="logs.join('
+')"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div x-show="currentSubtitles.length > 0" class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">AltyazÄ± SonuÃ§larÄ±</h2>
+                <button @click="downloadSubtitles" class="btn">ð¥ SRT Ä°ndir</button>
+            </div>
+            
+            <div class="space-y-3">
+                <template x-for="(subtitle, index) in currentSubtitles" :key="index">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-600" x-text="subtitle.speaker"></span>
+                            <span class="text-xs text-gray-500" x-text="formatTime(subtitle.startTime) + ' - ' + formatTime(subtitle.endTime)"></span>
+                        </div>
+                        <p class="text-gray-900" x-text="subtitle.line"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function videoEditor() {
+        return {
+            currentScreen: 'upload',
+            fileName: '',
+            statusMessage: '',
+            statusType: 'processing',
+            logs: [],
+            isLoading: false,
+            isDragOver: false,
+            originalVideoFile: null,
+            currentSubtitles: [],
+
+            handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.fileName = file.name;
+                    this.originalVideoFile = file;
+                    this.statusMessage = '';
+                }
+            },
+
+            handleDrop(event) {
+                this.isDragOver = false;
+                const files = event.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.type.startsWith('video/')) {
+                        this.fileName = file.name;
+                        this.originalVideoFile = file;
+                        this.statusMessage = '';
+                    } else {
+                        alert('LÃ¼tfen bir video dosyasÄ± seÃ§in.');
+                    }
+                }
+            },
+
+            addLog(message) {
+                this.logs.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            },
+
+            updateStatus(message, type) {
+                this.statusMessage = message;
+                this.statusType = type;
+            },
+
+            copyLogs() {
+                navigator.clipboard.writeText(this.logs.join('
+')).then(() => {
+                    alert('Loglar kopyalandÄ±!');
+                });
+            },
+
+            async handleUpload() {
+                if (!this.originalVideoFile) {
+                    this.updateStatus('LÃ¼tfen bir video dosyasÄ± seÃ§in.', 'error');
+                    return;
+                }
+
+                this.isLoading = true;
+                this.logs = [];
+                this.updateStatus('Video yÃ¼kleniyor ve iÅleniyor...', 'processing');
+                this.addLog('ð¤ Video yÃ¼kleniyor...');
+
+                const formData = new FormData();
+                formData.append('video', this.originalVideoFile);
+
+                try {
+                    const response = await fetch('/upload', { method: 'POST', body: formData });
+                    const result = await response.json();
+                    
+                    if (result.logs && Array.isArray(result.logs)) {
+                        this.logs = [...result.logs];
+                    }
+
+                    if (!response.ok || !result.success) {
+                        throw new Error(result.message || 'Sunucu hatasÄ± oluÅtu.');
+                    }
+
+                    this.updateStatus('â BaÅarÄ±yla tamamlandÄ±!', 'success');
+                    this.addLog('â AltyazÄ±lar oluÅturuldu!');
+                    
+                    if (result.subtitles && result.subtitles.subtitles) {
+                        this.currentSubtitles = result.subtitles.subtitles;
+                        this.addLog(`ð ${this.currentSubtitles.length} altyazÄ± bulundu`);
+                    }
+
+                } catch (error) {
+                    console.error('YÃ¼kleme hatasÄ±:', error);
+                    this.addLog('â Hata: ' + error.message);
+                    this.updateStatus('â Hata: ' + error.message, 'error');
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            downloadSubtitles() {
+                if (this.currentSubtitles.length === 0) return;
+                
+                const srtContent = this.currentSubtitles.map((sub, index) => {
+                    return `${index + 1}\n${this.formatTime(sub.startTime)} --> ${this.formatTime(sub.endTime)}\n${sub.line}\n`;
+                }).join('\n');
+                
+                const blob = new Blob([srtContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `subtitles_${Date.now()}.srt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            },
+
+            formatTime(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                const ms = Math.floor((seconds % 1) * 1000);
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+            }
+        }
+    }
+    </script>
+</body>
+</html>
