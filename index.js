@@ -137,6 +137,28 @@ function formatTime(totalSeconds) {
     return `${hours}:${pad(minutes)}:${pad(seconds)}.${pad(centiseconds)}`;
 }
 
+function convertToSRT(subtitlesData) {
+    let srtContent = '';
+    subtitlesData.subtitles.forEach((sub, index) => {
+        const safeStart = Math.max(0, Number(sub.startTime) || 0);
+        const safeEnd = Math.max(safeStart + 0.50, Number(sub.endTime) || safeStart + 0.50);
+        
+        const formatSRTTime = (seconds) => {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            const millis = Math.floor((seconds - Math.floor(seconds)) * 1000);
+            const pad = (num, len = 2) => String(num).padStart(len, '0');
+            return `${pad(hours)}:${pad(minutes)}:${pad(secs)},${pad(millis, 3)}`;
+        };
+        
+        srtContent += `${index + 1}\n`;
+        srtContent += `${formatSRTTime(safeStart)} --> ${formatSRTTime(safeEnd)}\n`;
+        srtContent += `${sub.line}\n\n`;
+    });
+    return srtContent;
+}
+
 function convertToAss(subtitlesData, options = {}) {
     const { fontName = 'Arial', fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
     let assHeader = `[Script Info]
@@ -332,12 +354,19 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             const absoluteAssPath = assPath.replace(/\\/g, '/');
             logs.push(`ℹ️ ASS path (relative): ${relativeAssPath}`);
             logs.push(`ℹ️ ASS path (absolute): ${absoluteAssPath}`);
-            // Önce videoyu yeniden boyutlandır, sonra altyazıları uygula
-            // Force style overrides for visibility using ASS provider options
-            // Note: Some ffmpeg builds accept force_style to override defaults
-            const forceStyle = `force_style='Alignment=2,PrimaryColour=&H00FFFFFF&,Outline=3,Shadow=1,MarginV=${marginV},Fontsize=${fontSize},Fontname=Arial'`;
-            const assArgPath = absoluteAssPath.startsWith('/') ? absoluteAssPath : `./${absoluteAssPath}`;
-            const videoFilter = `${videoResizingFilter},subtitles=filename='${assArgPath}':${forceStyle}`;
+            
+            // Fontconfig'i bypass et - SRT kullan (daha basit, font gerektirmez)
+            const srtFilename = `${path.basename(videoPath, path.extname(videoPath))}.srt`;
+            const srtPath = path.join(__dirname, 'uploads', srtFilename);
+            const srtContent = convertToSRT(subtitlesData);
+            fs.writeFileSync(srtPath, srtContent);
+            logs.push('✅ Geçici .srt altyazı dosyası oluşturuldu.');
+            
+            const absoluteSrtPath = srtPath.replace(/\\/g, '/');
+            logs.push(`ℹ️ SRT path (absolute): ${absoluteSrtPath}`);
+            
+            // SRT filter - fontconfig bypass
+            const videoFilter = `${videoResizingFilter},subtitles=filename='${absoluteSrtPath}'`;
             command = ffmpeg(videoPath)
                 .videoFilter(videoFilter)
                 .videoCodec('libx264')
@@ -513,17 +542,34 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
 });
 
 // Frontend uyumluluğu için API alias
-// /api/reprocess için aynı handler'ı kullan
+// /api/reprocess için aynı handler'ı kullan  
 app.post('/api/reprocess', reprocessUpload, async (req, res) => {
     const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
     let fullLogs = ['\n--- Yeniden İşleme İsteği Aldı (API) ---'];
-
-    if (!videoPath || !subtitles) {
-        return res.status(400).json({ success: false, message: 'Video yolu ve altyazı verisi gereklidir.', logs: fullLogs.concat('❌ Video yolu ve altyazı verisi gereklidir.') });
+    
+    // Frontend'den gelen 'video' dosyasını 'files' arrayinden al
+    let videoFile = null;
+    if (req.files && req.files.length > 0) {
+        videoFile = req.files.find(f => f.fieldname === 'video');
+    }
+    
+    let originalVideoFullPath;
+    
+    // Eğer video dosyası gönderildiyse, geçici olarak kaydet
+    if (videoFile && videoFile.buffer) {
+        originalVideoFullPath = path.join(__dirname, 'uploads', `reprocess-${Date.now()}.mp4`);
+        fs.writeFileSync(originalVideoFullPath, videoFile.buffer);
+        fullLogs.push(`📥 Video dosyası yüklendi ve kaydedildi: ${originalVideoFullPath}`);
+    } else if (videoPath) {
+        originalVideoFullPath = path.join(__dirname, videoPath);
+        fullLogs.push(`ℹ️ Orijinal video yolu: ${originalVideoFullPath}`);
+    } else {
+        return res.status(400).json({ success: false, message: 'Video dosyası veya yolu gereklidir.', logs: fullLogs.concat('❌ Video dosyası veya yolu gereklidir.') });
     }
 
-    const originalVideoFullPath = path.join(__dirname, videoPath);
-    fullLogs.push(`ℹ️ Orijinal video yolu: ${originalVideoFullPath}`);
+    if (!subtitles) {
+        return res.status(400).json({ success: false, message: 'Altyazı verisi gereklidir.', logs: fullLogs.concat('❌ Altyazı verisi gereklidir.') });
+    }
 
     if (!fs.existsSync(originalVideoFullPath)) {
         return res.status(404).json({ success: false, message: 'Sunucuda dosya bulunamadı.', logs: fullLogs.concat(`❌ Sunucu tarafında dosya bulunamadı: ${originalVideoFullPath}`) });
