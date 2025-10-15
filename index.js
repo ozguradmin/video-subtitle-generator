@@ -111,6 +111,8 @@ function convertToAss(subtitlesData, options = {}) {
 Title: Generated Subtitles
 ScriptType: v4.00+
 ScaledBorderAndShadow: yes
+PlayResX: 720
+PlayResY: 1280
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 `;
@@ -153,7 +155,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\
         }
         
         const italicValue = italic ? '1' : '0';
-        stylesSection += `Style: ${styleName},${fontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
+        stylesSection += `Style: ${styleName},${fontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,3,1,2,10,10,${marginV},1\n`;
 
         const startTime = formatTime(sub.startTime);
         const endTime = formatTime(sub.endTime);
@@ -164,7 +166,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\
     // Eğer hiç stil eklenmediyse (boş altyazı durumu), en az bir tane ekle
     if (stylesSection === '') {
         const italicValue = italic ? '1' : '0';
-        stylesSection += `Style: Default,${fontName},${fontSize},&H00FFFF&,&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,1.5,1,2,10,10,${marginV},1\n`;
+        stylesSection += `Style: Default,${fontName},${fontSize},&H00FFFFFF&,&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,3,1,2,10,10,${marginV},1\n`;
     }
     return assHeader + stylesSection + dialogueSection;
 }
@@ -252,7 +254,10 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
 
             const relativeAssPath = path.join('uploads', assFilename).replace(/\\/g, '/');
             // Önce videoyu yeniden boyutlandır, sonra altyazıları uygula
-            const videoFilter = `${videoResizingFilter},subtitles=filename='${relativeAssPath}'`;
+            // Force style overrides for visibility using ASS provider options
+            // Note: Some ffmpeg builds accept force_style to override defaults
+            const forceStyle = `force_style='Alignment=2,Outline=3,Shadow=1,MarginV=${marginV},Fontsize=${fontSize},Fontname=${'Arial'}'`;
+            const videoFilter = `${videoResizingFilter},subtitles=filename='${relativeAssPath}':${forceStyle}`;
             command = ffmpeg(videoPath)
                 .videoFilter(videoFilter)
                 .videoCodec('libx264')
