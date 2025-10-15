@@ -30,6 +30,7 @@ ensureDir(path.join(__dirname, 'uploads'));
 ensureDir(path.join(__dirname, 'processed'));
 
 const genAI = !USE_FAKE_AI ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const FORCE_DRAWTEXT = String(process.env.FORCE_DRAWTEXT || '').toLowerCase() === 'true';
 
 function fileToGenerativePart(path, mimeType) {
     return {
@@ -185,11 +186,35 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         // 9:16 formatına dönüştürme ve siyah bar ekleme (daha hafif: 720x1280)
         const videoResizingFilter = 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=black';
 
-        if (fontFile && fontFile.filename) {
+        // Try to locate a common system font for drawtext fallback (Railway base images may not have fonts)
+        let defaultFontPath = null;
+        const commonFonts = [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf'
+        ];
+        for (const fp of commonFonts) {
+            try { if (fs.existsSync(fp)) { defaultFontPath = fp; break; } } catch(_) {}
+        }
+
+        const fontFileProvided = Boolean(fontFile && fontFile.filename);
+        const useDrawtext = fontFileProvided || FORCE_DRAWTEXT || Boolean(defaultFontPath);
+
+        if (useDrawtext) {
             try {
-                const fontPath = path.join(__dirname, 'uploads', fontFile.filename).replace(/\\/g, '/');
-                logs.push(`🟢 MODE: drawtext (custom font dosyası ile)`);
-                logs.push(`ℹ️ drawtext kullanılacak. fontfile='${fontPath}'`);
+                let fontPath = null;
+                if (fontFileProvided) {
+                    fontPath = path.join(__dirname, 'uploads', fontFile.filename).replace(/\\/g, '/');
+                    logs.push(`🟢 MODE: drawtext (custom font dosyası ile)`);
+                } else if (defaultFontPath) {
+                    fontPath = defaultFontPath;
+                    logs.push(`🟢 MODE: drawtext (varsayılan sistem fontu)`);
+                } else {
+                    logs.push('🟡 MODE: drawtext (fontfile olmadan denenecek)');
+                }
+                if (fontPath) {
+                    logs.push(`ℹ️ drawtext kullanılacak. fontfile='${fontPath}'`);
+                }
 
                 const escapeDrawtext = (text) => {
                     if (typeof text !== 'string') return '';
@@ -213,15 +238,14 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                         color = hexToDrawtext(speakerColors[sub.speaker]);
                     }
 
-                    return {
-                        filter: 'drawtext',
-                        options: {
-                            fontfile: fontPath, text: text, fontsize: fontSize, fontcolor: color,
-                            x: "(w-text_w)/2", y: `h-${marginV}-text_h`, box: 1, boxcolor: 'black@0.35', boxborderw: 8,
-                            shadowcolor: 'black', shadowx: 0, shadowy: 0,
-                            enable: `between(t\\,${start.toFixed(3)}\\,${end.toFixed(3)})`
-                        }
+                    const options = {
+                        text: text, fontsize: fontSize, fontcolor: color,
+                        x: "(w-text_w)/2", y: `h-${marginV}-text_h`, box: 1, boxcolor: 'black@0.35', boxborderw: 8,
+                        shadowcolor: 'black', shadowx: 0, shadowy: 0,
+                        enable: `between(t\\,${start.toFixed(3)}\\,${end.toFixed(3)})`
                     };
+                    if (fontPath) options.fontfile = fontPath;
+                    return { filter: 'drawtext', options };
                 });
 
                 // Önce videoyu yeniden boyutlandır, sonra altyazıları ekle
@@ -247,7 +271,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                 return;
             }
         } else {
-            logs.push('🔵 MODE: subtitles/ASS (özel font yok)');
+            logs.push('🔵 MODE: subtitles/ASS (drawtext kullanılmıyor)');
             const assContent = convertToAss(subtitlesData, { fontName: 'Arial', fontSize: fontSize, marginV: marginV, italic: italic, speakerColors: speakerColors });
             const assFilename = `${path.basename(videoPath, path.extname(videoPath))}.ass`;
             const assPath = path.join(__dirname, 'uploads', assFilename);
@@ -261,7 +285,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             // Önce videoyu yeniden boyutlandır, sonra altyazıları uygula
             // Force style overrides for visibility using ASS provider options
             // Note: Some ffmpeg builds accept force_style to override defaults
-            const forceStyle = `force_style='Alignment=2,Outline=3,Shadow=1,MarginV=${marginV},Fontsize=${fontSize},Fontname=${'Arial'}'`;
+            const forceStyle = `force_style='Alignment=2,PrimaryColour=&H00FFFFFF&,Outline=3,Shadow=1,MarginV=${marginV},Fontsize=${fontSize},Fontname=Arial'`;
             const assArgPath = absoluteAssPath.startsWith('/') ? absoluteAssPath : `./${absoluteAssPath}`;
             const videoFilter = `${videoResizingFilter},subtitles=filename='${assArgPath}':${forceStyle}`;
             command = ffmpeg(videoPath)
@@ -425,6 +449,12 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
             fs.unlinkSync(req.file.path);
         }
     }
+});
+
+// Frontend uyumluluğu için API alias
+app.post('/api/reprocess', reprocessUpload, async (req, res) => {
+    req.url = '/reprocess';
+    return app._router.handle(req, res);
 });
 
 app.get('/', (req, res) => {
