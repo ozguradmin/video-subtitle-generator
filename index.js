@@ -293,14 +293,18 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                     return { filter: 'drawtext', options };
                 });
 
-                // Önce videoyu yeniden boyutlandır, sonra altyazıları ekle
-                const complexFilters = [
-                    { filter: videoResizingFilter, inputs: '0:v', outputs: 'padded' },
-                    ...filters.map(f => ({ ...f, inputs: 'padded', outputs: 'padded' }))
-                ];
+                // Önce videoyu yeniden boyutlandır, sonra drawtext filtrelerini sırayla uygula
+                const complexFilters = [];
+                complexFilters.push({ filter: videoResizingFilter, inputs: '0:v', outputs: 'p0' });
+                let prev = 'p0';
+                filters.forEach((f, i) => {
+                    const out = `p${i + 1}`;
+                    complexFilters.push({ ...f, inputs: prev, outputs: out });
+                    prev = out;
+                });
 
                 command = ffmpeg(videoPath)
-                    .complexFilter(complexFilters, 'padded')
+                    .complexFilter(complexFilters, prev)
                     .videoCodec('libx264')
                     .audioCodec('aac')
                     .outputOptions([
