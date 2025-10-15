@@ -257,6 +257,11 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get('/favicon.ico', (req, res) => res.status(204));
 
+// Test endpoint
+app.get('/test', (req, res) => {
+    res.json({ message: 'Railway çalışıyor!', timestamp: new Date().toISOString() });
+});
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
