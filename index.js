@@ -11,6 +11,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -28,6 +29,34 @@ const ensureDir = (dirPath) => {
 };
 ensureDir(path.join(__dirname, 'uploads'));
 ensureDir(path.join(__dirname, 'processed'));
+ensureDir(path.join(__dirname, 'fonts'));
+
+async function downloadFile(url, destPath) {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(destPath);
+        https.get(url, (response) => {
+            if (response.statusCode !== 200) {
+                reject(new Error('HTTP ' + response.statusCode + ' while downloading ' + url));
+                return;
+            }
+            response.pipe(file);
+            file.on('finish', () => file.close(() => resolve(destPath)));
+        }).on('error', (err) => {
+            try { fs.unlinkSync(destPath); } catch (_) {}
+            reject(err);
+        });
+    });
+}
+
+async function ensureDefaultFontFile() {
+    const localPath = path.join(__dirname, 'fonts', 'DejaVuSans.ttf');
+    try {
+        if (fs.existsSync(localPath)) return localPath;
+    } catch (_) {}
+    const fontUrl = process.env.DEFAULT_FONT_URL || 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf';
+    await downloadFile(fontUrl, localPath);
+    return localPath;
+}
 
 const genAI = !USE_FAKE_AI ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 const FORCE_DRAWTEXT = String(process.env.FORCE_DRAWTEXT || '').toLowerCase() === 'true';
@@ -179,6 +208,14 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
     const { fontFile = null, fontSize = 16, marginV = 70, italic = false, speakerColors = {} } = options;
     const logs = [];
 
+    // Precompute default font if needed
+    let precomputedDefaultFont = null;
+    try {
+        precomputedDefaultFont = await ensureDefaultFontFile();
+    } catch (e) {
+        logs.push('⚠️ Varsayılan font indirilemedi: ' + (e?.message || e));
+    }
+
     return new Promise((resolve, reject) => {
         const uniqueSuffix = Date.now();
         const outputFilename = `subtitled_${path.basename(videoPath, path.extname(videoPath))}-${uniqueSuffix}${path.extname(videoPath)}`;
@@ -188,7 +225,7 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
         const videoResizingFilter = 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=black';
 
         // Try to locate a common system font for drawtext fallback (Railway base images may not have fonts)
-        let defaultFontPath = null;
+        let defaultFontPath = precomputedDefaultFont || null;
         const commonFonts = [
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
@@ -212,7 +249,13 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
                     fontPath = defaultFontPath;
                     logs.push(`🟢 MODE: drawtext (varsayılan sistem fontu)`);
                 } else {
-                    logs.push('🟡 MODE: drawtext (fontfile olmadan denenecek)');
+                    // As a last resort, try to ensure default font now (sync path only, no await inside executor)
+                    fontPath = precomputedDefaultFont || null;
+                    if (fontPath) {
+                        logs.push(`🟢 MODE: drawtext (indirilen varsayılan font) -> ${fontPath}`);
+                    } else {
+                        logs.push('🟡 MODE: drawtext (fontfile olmadan denenecek)');
+                    }
                 }
                 if (fontPath) {
                     logs.push(`ℹ️ drawtext kullanılacak. fontfile='${fontPath}'`);
@@ -344,7 +387,18 @@ app.get('/test', (req, res) => {
 // Railway'da uploads klasörü olmayabilir, memory storage kullan
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-const reprocessUpload = multer({ storage: storage }).single(undefined);
+// Accept any single file field name for reprocess font uploads
+const reprocessUpload = (req, res, next) => {
+    const anySingle = multer({ storage: storage }).any();
+    anySingle(req, res, (err) => {
+        if (err) return next(err);
+        // Normalize: pick first file as req.file if present
+        if (Array.isArray(req.files) && req.files.length > 0) {
+            req.file = req.files[0];
+        }
+        next();
+    });
+};
 
 async function uploadHandler(req, res) {
     if (!req.file) {
