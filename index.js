@@ -60,7 +60,8 @@ async function ensureDefaultFontFile() {
 
 const genAI = !USE_FAKE_AI ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 const FORCE_DRAWTEXT = String(process.env.FORCE_DRAWTEXT || '').toLowerCase() === 'true';
-const PREFER_ASS = String(process.env.PREFER_ASS || '').toLowerCase() === 'true';
+// Drawtext font olmadan çalışmıyor Railway'da, varsayılan olarak ASS kullan
+const PREFER_ASS = String(process.env.PREFER_ASS || 'true').toLowerCase() === 'true';
 
 function fileToGenerativePart(path, mimeType) {
     return {
