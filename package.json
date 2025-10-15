@@ -2,8 +2,7 @@
   "name": "video-subtitle-generator",
   "version": "1.0.0",
   "description": "AI-powered video subtitle generator with modern UI",
-  "main": "src/index.js",
-  "type": "module",
+  "main": "index.js",
   "scripts": {
     "build": "echo 'Build completed'",
     "dev": "wrangler dev",
