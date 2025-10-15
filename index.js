@@ -38,7 +38,7 @@ function generateSubtitlesFallback() {
     };
 }
 
-async function generateSubtitles(videoPath) {
+async function generateSubtitles(videoData) {
     if (USE_FAKE_AI) {
         return generateSubtitlesFallback();
     }
@@ -56,7 +56,14 @@ KURALLAR:
 JSON FORMATI:
 { "subtitles": [ { "speaker": "Konuşmacı 1", "line": "Türkçe çeviri metni", "startTime": saniye.saniyesinin_yuzde_biri, "endTime": saniye.saniyesinin_yuzde_biri } ] }`;
 
-    const videoPart = fileToGenerativePart(videoPath, "video/mp4"); 
+    // videoData buffer ise direkt kullan, path ise oku
+    const videoBuffer = Buffer.isBuffer(videoData) ? videoData : Buffer.from(fs.readFileSync(videoData));
+    const videoPart = {
+        inlineData: {
+            data: videoBuffer.toString("base64"),
+            mimeType: "video/mp4"
+        }
+    }; 
     const result = await model.generateContent([prompt, videoPart]);
     const response = await result.response;
     const text = response.text();
@@ -262,10 +269,8 @@ app.get('/test', (req, res) => {
     res.json({ message: 'Railway çalışıyor!', timestamp: new Date().toISOString() });
 });
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
-});
+// Railway'da uploads klasörü olmayabilir, memory storage kullan
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 const reprocessUpload = multer({ storage: storage }).single('font');
 
@@ -276,11 +281,11 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     let fullLogs = [];
     try {
         fullLogs.push('Altyazı oluşturma başlıyor...');
-        const subtitlesData = await generateSubtitles(req.file.path);
+        const subtitlesData = await generateSubtitles(req.file.buffer);
         fullLogs.push('✅ Yapay zekadan altyazılar başarıyla oluşturuldu.');
         
         fullLogs.push('Altyazı yakma işlemi başlıyor...');
-        const burnResult = await burnSubtitles(req.file.path, subtitlesData, {
+        const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
             fontSize: 12,
             marginV: 60,
             italic: false,
