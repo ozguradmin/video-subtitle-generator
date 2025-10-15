@@ -16,6 +16,19 @@ const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// Ensure required directories exist (uploads, processed)
+const ensureDir = (dirPath) => {
+    try {
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+    } catch (e) {
+        console.error('Klasör oluşturma hatası:', dirPath, e?.message || e);
+    }
+};
+ensureDir(path.join(__dirname, 'uploads'));
+ensureDir(path.join(__dirname, 'processed'));
+
 const genAI = !USE_FAKE_AI ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
 function fileToGenerativePart(path, mimeType) {
@@ -274,18 +287,27 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 const reprocessUpload = multer({ storage: storage }).single('font');
 
-app.post('/upload', upload.single('video'), async (req, res) => {
+async function uploadHandler(req, res) {
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'Lütfen bir video dosyası yükleyin.', logs:['❌ Lütfen bir video dosyası yükleyin.'] });
     }
     let fullLogs = [];
+    const receivedInfo = `Dosya alındı: name='${req.file.originalname}', size=${req.file.size}B, mimetype='${req.file.mimetype}'`;
+    console.log(receivedInfo);
+    fullLogs.push('📥 ' + receivedInfo);
+    let tempVideoPath = null;
     try {
-        fullLogs.push('Altyazı oluşturma başlıyor...');
+        // Buffer'ı geçici dosyaya yaz
+        tempVideoPath = path.join(__dirname, 'uploads', `upload-${Date.now()}.mp4`);
+        fs.writeFileSync(tempVideoPath, req.file.buffer);
+        fullLogs.push('📝 Geçici video dosyası oluşturuldu: ' + tempVideoPath);
+
+        fullLogs.push('🤖 Altyazı oluşturma başlıyor...');
         const subtitlesData = await generateSubtitles(req.file.buffer);
         fullLogs.push('✅ Yapay zekadan altyazılar başarıyla oluşturuldu.');
         
-        fullLogs.push('Altyazı yakma işlemi başlıyor...');
-        const burnResult = await burnSubtitles(req.file.buffer, subtitlesData, {
+        fullLogs.push('🔥 Altyazı yakma işlemi başlıyor...');
+        const burnResult = await burnSubtitles(tempVideoPath, subtitlesData, {
             fontSize: 12,
             marginV: 60,
             italic: false,
@@ -296,7 +318,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
         res.json({ 
             success: true, 
             message: 'Video başarıyla işlendi.',
-            originalPath: path.relative(__dirname, req.file.path),
+            originalPath: path.relative(__dirname, tempVideoPath),
             downloadUrl: `/${path.join('processed', path.basename(burnResult.finalVideoPath)).replace(/\\/g, '/')}`,
             subtitles: subtitlesData,
             logs: fullLogs
@@ -304,10 +326,15 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     } catch (error) {
         const errorLogs = error.logs || [];
         fullLogs = fullLogs.concat(errorLogs);
-        fullLogs.push('❌ Genel Hata: ' + error.message);
-        res.status(500).json({ success: false, message: 'Altyazı oluşturulurken bir hata oluştu.', error: error.message, logs: fullLogs });
+        fullLogs.push('❌ Genel Hata: ' + (error.message || error));
+        console.error('Upload hata:', error?.message || error);
+        res.status(500).json({ success: false, message: 'Altyazı oluşturulurken bir hata oluştu.', error: (error.message || error), logs: fullLogs });
     }
-});
+}
+
+// Add both routes for compatibility with frontend
+app.post('/upload', upload.single('video'), uploadHandler);
+app.post('/api/upload', upload.single('video'), uploadHandler);
 
 app.post('/reprocess', reprocessUpload, async (req, res) => {
     const { videoPath, subtitles, fontSize, marginV, italic, speakerColors } = req.body;
@@ -361,7 +388,7 @@ app.post('/reprocess', reprocessUpload, async (req, res) => {
             logs: fullLogs 
         });
     } finally {
-        if (req.file && fs.existsSync(req.file.path)) {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
     }
