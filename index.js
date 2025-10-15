@@ -157,8 +157,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\
         const italicValue = italic ? '1' : '0';
         stylesSection += `Style: ${styleName},${fontName},${fontSize},${color},&H000000FF,&H80000000,&H64000000,-1,${italicValue},0,0,100,100,0,0,1,3,1,2,10,10,${marginV},1\n`;
 
-        const startTime = formatTime(sub.startTime);
-        const endTime = formatTime(sub.endTime);
+        const safeStart = Math.max(0, Number(sub.startTime) || 0);
+        const safeEnd = Math.max(safeStart + 0.50, Number(sub.endTime) || safeStart + 0.50); // min 0.5s
+        const startTime = formatTime(safeStart);
+        const endTime = formatTime(safeEnd);
         const text = sub.line.replace(/\n/g, '\\N');
         dialogueSection += `Dialogue: 0,${startTime},${endTime},${styleName},,0,0,0,,${text}\n`;
     });
@@ -253,11 +255,15 @@ async function burnSubtitles(videoPath, subtitlesData, options = {}) {
             logs.push('✅ Geçici .ass altyazı dosyası oluşturuldu.');
 
             const relativeAssPath = path.join('uploads', assFilename).replace(/\\/g, '/');
+            const absoluteAssPath = assPath.replace(/\\/g, '/');
+            logs.push(`ℹ️ ASS path (relative): ${relativeAssPath}`);
+            logs.push(`ℹ️ ASS path (absolute): ${absoluteAssPath}`);
             // Önce videoyu yeniden boyutlandır, sonra altyazıları uygula
             // Force style overrides for visibility using ASS provider options
             // Note: Some ffmpeg builds accept force_style to override defaults
             const forceStyle = `force_style='Alignment=2,Outline=3,Shadow=1,MarginV=${marginV},Fontsize=${fontSize},Fontname=${'Arial'}'`;
-            const videoFilter = `${videoResizingFilter},subtitles=filename='${relativeAssPath}':${forceStyle}`;
+            const assArgPath = absoluteAssPath.startsWith('/') ? absoluteAssPath : `./${absoluteAssPath}`;
+            const videoFilter = `${videoResizingFilter},subtitles=filename='${assArgPath}':${forceStyle}`;
             command = ffmpeg(videoPath)
                 .videoFilter(videoFilter)
                 .videoCodec('libx264')
